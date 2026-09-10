@@ -22,3 +22,5 @@ Little project for trying to process [**Weekly Patterns Plus**](https://app.dewe
 ├── README.md
 └── uv.lock
 ```
+
+> Advan Research. (2025). Foot Traffic / Weekly Patterns Plus [Dataset]. Dewey Data. https://doi.org/10.82551/C103-N851
