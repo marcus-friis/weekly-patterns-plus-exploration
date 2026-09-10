@@ -1,0 +1,23 @@
+[project]
+name = "advan-test"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+authors = [
+    { name = "Marcus", email = "marcus.friis99@gmail.com" }
+]
+requires-python = ">=3.14"
+dependencies = [
+    "geopandas>=1.1.4",
+    "matplotlib>=3.11.1",
+    "orjson>=3.12.0",
+    "polars>=1.44.2",
+    "pyarrow>=25.0.1",
+]
+
+[project.scripts]
+advan-test = "advan_test:main"
+
+[build-system]
+requires = ["uv_build>=0.12.8,<0.13.0"]
+build-backend = "uv_build"
