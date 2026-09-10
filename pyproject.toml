@@ -15,9 +15,18 @@ dependencies = [
     "pyarrow>=25.0.1",
 ]
 
+[tool.uv]
+package = true
+
 [project.scripts]
 advan-test = "advan_test:main"
 
 [build-system]
 requires = ["uv_build>=0.12.8,<0.13.0"]
 build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "ipykernel>=7.3.0",
+    "jupyter>=1.1.1",
+]
