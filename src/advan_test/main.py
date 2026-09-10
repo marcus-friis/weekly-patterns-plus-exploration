@@ -28,3 +28,4 @@ if __name__ == "__main__":
     plot.plot_dwell_time_dist(df)
     plot.plot_visits_vs_visitors_scatter(df)
     plot.plot_poi_locations(points, states)
+    plot.plot_region_population_counts(points, states)

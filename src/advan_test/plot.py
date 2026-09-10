@@ -198,3 +198,25 @@ def plot_poi_locations(
     ax.set_ylim(24, 50)
     ax.set_axis_off()
     return fig, ax
+
+
+@save_fig()
+def plot_region_population_counts(
+    points: gpd.GeoDataFrame, base: gpd.GeoDataFrame
+) -> tuple[plt.Figure, plt.Axes]:
+    joined = base.sjoin(points, how="left", predicate="intersects")
+    agg = joined.groupby(["id", "region"])["visitor_counts"].sum().reset_index()
+    agg["visitor_counts"] = agg["visitor_counts"]
+    result = base.merge(agg, on="id", how="left").fillna(0)
+
+    fig, ax = plt.subplots()
+    result.plot(
+        column="visitor_counts",
+        ax=ax,
+        legend=True,
+        cmap="viridis",
+        edgecolor="black",
+    )
+    ax.set_title("Visitor Counts by Region")
+    ax.axis("off")
+    return fig, ax
