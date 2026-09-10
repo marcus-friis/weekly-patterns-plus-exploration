@@ -131,7 +131,7 @@ def plot_weekly_visits_trend(df: pl.DataFrame) -> tuple[plt.Figure, plt.Axes]:
 
 @save_fig()
 def plot_distance_from_home_dist(
-    df: pl.DataFrame, max_distance: float | None = None
+    df: pl.DataFrame, max_distance: float | None = None, log_scale: bool = False
 ) -> tuple[plt.Figure, plt.Axes]:
     """Distribution of how far visitors traveled from home (meters, per Advan schema)."""
     dist = df["distance_from_home"].drop_nulls()
@@ -139,20 +139,42 @@ def plot_distance_from_home_dist(
         dist = dist.filter(dist <= max_distance)
 
     fig, ax = plt.subplots()
-    ax.hist(dist, bins=30, color="darkorange", edgecolor="white")
-    ax.set_xlabel("Distance from home")
+
+    if log_scale:
+        dist = dist.filter(dist > 0)  # logspace needs strictly positive values
+        dist_np = dist.to_numpy()
+        bins = np.logspace(np.log10(dist_np.min()), np.log10(dist_np.max()), 30)
+        ax.hist(dist_np, bins=bins, color="darkorange", edgecolor="white")
+        ax.set_xscale("log")
+        ax.set_xlabel("Distance from home (m, log scale)")
+    else:
+        ax.hist(dist, bins=30, color="darkorange", edgecolor="white")
+        ax.set_xlabel("Distance from home (m)")
+
     ax.set_ylabel("#POI-weeks")
     return fig, ax
 
 
 @save_fig()
-def plot_dwell_time_dist(df: pl.DataFrame) -> tuple[plt.Figure, plt.Axes]:
+def plot_dwell_time_dist(
+    df: pl.DataFrame, log_scale: bool = False
+) -> tuple[plt.Figure, plt.Axes]:
     """Distribution of median dwell time. median_dwell is cast to numeric, dropping non-parsable values."""
     dwell = df["median_dwell"].cast(pl.Float64, strict=False).drop_nulls()
 
     fig, ax = plt.subplots()
-    ax.hist(dwell, bins=30, color="mediumseagreen", edgecolor="white")
-    ax.set_xlabel("Median dwell time (minutes)")
+
+    if log_scale:
+        dwell = dwell.filter(dwell > 0)  # logspace needs strictly positive values
+        dwell_np = dwell.to_numpy()
+        bins = np.logspace(np.log10(dwell_np.min()), np.log10(dwell_np.max()), 30)
+        ax.hist(dwell_np, bins=bins, color="mediumseagreen", edgecolor="white")
+        ax.set_xscale("log")
+        ax.set_xlabel("Median dwell time (minutes, log scale)")
+    else:
+        ax.hist(dwell, bins=30, color="mediumseagreen", edgecolor="white")
+        ax.set_xlabel("Median dwell time (minutes)")
+
     ax.set_ylabel("#POI-weeks")
     return fig, ax
 
