@@ -2,12 +2,14 @@ import geopandas as gpd
 import matplotlib.pyplot as plt
 import numpy as np
 import polars as pl
+from matplotlib.axes import Axes
+from matplotlib.figure import Figure
 
 from advan_test.utils import save_fig
 
 
 @save_fig()
-def plot_visitor_dist_by_region(df: pl.DataFrame) -> tuple[plt.Figure, plt.Axes]:
+def plot_visitor_dist_by_region(df: pl.DataFrame) -> tuple[Figure, Axes]:
     fig, ax = plt.subplots()
     bins = np.linspace(0, 200, 11)
     for region in df["region"].unique():
@@ -20,7 +22,7 @@ def plot_visitor_dist_by_region(df: pl.DataFrame) -> tuple[plt.Figure, plt.Axes]
 @save_fig()
 def plot_pois_by_dimension(
     df: pl.DataFrame, dimension: str = "top_category", top_k: int | None = None
-) -> tuple[plt.Figure, plt.Axes]:
+) -> tuple[Figure, Axes]:
     agg = (
         df.group_by(dimension)
         .agg(pl.col("id_store").n_unique().alias("num"))
@@ -36,7 +38,7 @@ def plot_pois_by_dimension(
 
 
 @save_fig()
-def plot_visits_by_hour(df: pl.DataFrame) -> tuple[plt.Figure, plt.Axes]:
+def plot_visits_by_hour(df: pl.DataFrame) -> tuple[Figure, Axes]:
     hour_sum = df["visits_by_each_hour"].to_numpy().sum(axis=0)
     n = hour_sum.shape[0]
     x = np.arange(n)
@@ -73,7 +75,7 @@ def plot_visits_by_hour(df: pl.DataFrame) -> tuple[plt.Figure, plt.Axes]:
 
 
 @save_fig()
-def plot_visits_by_hour_per_day(df: pl.DataFrame) -> tuple[plt.Figure, plt.Axes]:
+def plot_visits_by_hour_per_day(df: pl.DataFrame) -> tuple[Figure, Axes]:
     hour_sum = df["visits_by_each_hour"].to_numpy().sum(axis=0)
     n = hour_sum.shape[0]
 
@@ -100,7 +102,7 @@ def plot_visits_by_hour_per_day(df: pl.DataFrame) -> tuple[plt.Figure, plt.Axes]
 
 
 @save_fig()
-def plot_visits_by_weekday(df: pl.DataFrame) -> tuple[plt.Figure, plt.Axes]:
+def plot_visits_by_weekday(df: pl.DataFrame) -> tuple[Figure, Axes]:
     """Total visits per weekday, summed across all POIs and weeks."""
     day_sum = df["visits_by_day"].to_numpy().sum(axis=0)
     day_names = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
@@ -113,7 +115,7 @@ def plot_visits_by_weekday(df: pl.DataFrame) -> tuple[plt.Figure, plt.Axes]:
 
 
 @save_fig()
-def plot_weekly_visits_trend(df: pl.DataFrame) -> tuple[plt.Figure, plt.Axes]:
+def plot_weekly_visits_trend(df: pl.DataFrame) -> tuple[Figure, Axes]:
     """Total visitor counts per week, to see trend/seasonality over time."""
     weekly = (
         df.group_by("date_range_start")
@@ -132,7 +134,7 @@ def plot_weekly_visits_trend(df: pl.DataFrame) -> tuple[plt.Figure, plt.Axes]:
 @save_fig()
 def plot_distance_from_home_dist(
     df: pl.DataFrame, max_distance: float | None = None, log_scale: bool = False
-) -> tuple[plt.Figure, plt.Axes]:
+) -> tuple[Figure, Axes]:
     """Distribution of how far visitors traveled from home (meters, per Advan schema)."""
     dist = df["distance_from_home"].drop_nulls()
     if max_distance is not None:
@@ -158,7 +160,7 @@ def plot_distance_from_home_dist(
 @save_fig()
 def plot_dwell_time_dist(
     df: pl.DataFrame, log_scale: bool = False
-) -> tuple[plt.Figure, plt.Axes]:
+) -> tuple[Figure, Axes]:
     """Distribution of median dwell time. median_dwell is cast to numeric, dropping non-parsable values."""
     dwell = df["median_dwell"].cast(pl.Float64, strict=False).drop_nulls()
 
@@ -180,7 +182,7 @@ def plot_dwell_time_dist(
 
 
 @save_fig()
-def plot_visits_vs_visitors_scatter(df: pl.DataFrame) -> tuple[plt.Figure, plt.Axes]:
+def plot_visits_vs_visitors_scatter(df: pl.DataFrame) -> tuple[Figure, Axes]:
     """Relationship between total visits and unique visitors per POI-week."""
     fig, ax = plt.subplots()
     ax.scatter(df["visitor_counts"], df["visit_counts"], alpha=0.3, s=10)
@@ -201,7 +203,7 @@ def plot_visits_vs_visitors_scatter(df: pl.DataFrame) -> tuple[plt.Figure, plt.A
 @save_fig()
 def plot_poi_locations(
     points: gpd.GeoDataFrame, base: gpd.GeoDataFrame
-) -> tuple[plt.Figure, plt.Axes]:
+) -> tuple[Figure, Axes]:
     """Plot location of POIs onto basemap"""
     fig, ax = plt.subplots(figsize=(12, 8))
     base.plot(ax=ax, color="#f0efeb", edgecolor="gray", linewidth=0.5)
@@ -225,7 +227,7 @@ def plot_poi_locations(
 @save_fig()
 def plot_region_population_counts(
     points: gpd.GeoDataFrame, base: gpd.GeoDataFrame
-) -> tuple[plt.Figure, plt.Axes]:
+) -> tuple[Figure, Axes]:
     joined = base.sjoin(points, how="left", predicate="intersects")
     agg = joined.groupby(["id", "region"])["visitor_counts"].sum().reset_index()
     agg["visitor_counts"] = agg["visitor_counts"]
@@ -245,7 +247,7 @@ def plot_region_population_counts(
 
 
 @save_fig()
-def plot_poi_visitor_distribution(df: pl.DataFrame) -> tuple[plt.Figure, plt.Axes]:
+def plot_poi_visitor_distribution(df: pl.DataFrame) -> tuple[Figure, Axes]:
     agg = df.group_by("id_store").agg(pl.col("visitor_counts").sum())
     series = agg["visitor_counts"]
     fig, ax = plt.subplots()
@@ -254,7 +256,7 @@ def plot_poi_visitor_distribution(df: pl.DataFrame) -> tuple[plt.Figure, plt.Axe
 
 
 @save_fig()
-def plot_poi_visitor_ccdf(df: pl.DataFrame) -> tuple[plt.Figure, plt.Axes]:
+def plot_poi_visitor_ccdf(df: pl.DataFrame) -> tuple[Figure, Axes]:
     agg = df.group_by("id_store").agg(pl.col("visitor_counts").sum())
     series = agg["visitor_counts"].to_numpy()
 
