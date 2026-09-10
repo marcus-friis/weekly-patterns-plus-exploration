@@ -3,26 +3,35 @@ import matplotlib.pyplot as plt
 import numpy as np
 import polars as pl
 from matplotlib.axes import Axes
-from matplotlib.figure import Figure
 
 from advan_test.utils import save_fig
 
 
+def _resolve_ax(ax: Axes | None, **subplots_kwargs) -> Axes:
+    """Return ax. If ax is given, reuse its figure; else create both."""
+    if ax is None:
+        _, ax = plt.subplots(**subplots_kwargs)
+    return ax
+
+
 @save_fig()
-def plot_visitor_dist_by_region(df: pl.DataFrame) -> tuple[Figure, Axes]:
-    fig, ax = plt.subplots()
+def plot_visitor_dist_by_region(df: pl.DataFrame, ax: Axes | None = None) -> Axes:
+    ax = _resolve_ax(ax)
     bins = np.linspace(0, 200, 11)
     for region in df["region"].unique():
         df_filtered = df.filter(df["region"] == region)
         ax.hist(df_filtered["visitor_counts"], bins=bins, label=region)
     ax.legend()
-    return fig, ax
+    return ax
 
 
 @save_fig()
 def plot_pois_by_dimension(
-    df: pl.DataFrame, dimension: str = "top_category", top_k: int | None = None
-) -> tuple[Figure, Axes]:
+    df: pl.DataFrame,
+    dimension: str = "top_category",
+    top_k: int | None = None,
+    ax: Axes | None = None,
+) -> Axes:
     agg = (
         df.group_by(dimension)
         .agg(pl.col("id_store").n_unique().alias("num"))
@@ -30,19 +39,22 @@ def plot_pois_by_dimension(
     )
     if top_k is not None:
         agg = agg.top_k(top_k, by="num")
-    fig, ax = plt.subplots()
+    ax = _resolve_ax(ax)
     ax.barh(agg[dimension][::-1], agg["num"][::-1])
     ax.set_xlabel("#POI")
     ax.set_ylabel(dimension)
-    return fig, ax
+    return ax
 
 
 @save_fig()
-def plot_visits_by_hour(df: pl.DataFrame) -> tuple[Figure, Axes]:
+def plot_visits_by_hour(
+    df: pl.DataFrame,
+    ax: Axes | None = None,
+) -> Axes:
     hour_sum = df["visits_by_each_hour"].to_numpy().sum(axis=0)
     n = hour_sum.shape[0]
     x = np.arange(n)
-    fig, ax = plt.subplots()
+    ax = _resolve_ax(ax)
     ax.plot(x, hour_sum)
 
     hours_per_day = 24
@@ -71,11 +83,14 @@ def plot_visits_by_hour(df: pl.DataFrame) -> tuple[Figure, Axes]:
     ax.set_xticks(np.arange(0, n + 1, hours_per_day))
     ax.set_xlabel("Hour")
     ax.set_ylabel("#Visitors")
-    return fig, ax
+    return ax
 
 
 @save_fig()
-def plot_visits_by_hour_per_day(df: pl.DataFrame) -> tuple[Figure, Axes]:
+def plot_visits_by_hour_per_day(
+    df: pl.DataFrame,
+    ax: Axes | None = None,
+) -> Axes:
     hour_sum = df["visits_by_each_hour"].to_numpy().sum(axis=0)
     n = hour_sum.shape[0]
 
@@ -83,7 +98,7 @@ def plot_visits_by_hour_per_day(df: pl.DataFrame) -> tuple[Figure, Axes]:
     n_days = n // hours_per_day  # 7
 
     x = np.arange(hours_per_day)
-    fig, ax = plt.subplots()
+    ax = _resolve_ax(ax)
 
     day_names = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
 
@@ -98,24 +113,30 @@ def plot_visits_by_hour_per_day(df: pl.DataFrame) -> tuple[Figure, Axes]:
     ax.set_xlabel("Hour")
     ax.set_ylabel("#Visitors")
     ax.legend(title="Day")
-    return fig, ax
+    return ax
 
 
 @save_fig()
-def plot_visits_by_weekday(df: pl.DataFrame) -> tuple[Figure, Axes]:
+def plot_visits_by_weekday(
+    df: pl.DataFrame,
+    ax: Axes | None = None,
+) -> Axes:
     """Total visits per weekday, summed across all POIs and weeks."""
     day_sum = df["visits_by_day"].to_numpy().sum(axis=0)
     day_names = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
 
-    fig, ax = plt.subplots()
+    ax = _resolve_ax(ax)
     ax.bar(day_names, day_sum, color="steelblue")
     ax.set_xlabel("Day of week")
     ax.set_ylabel("#Visitors")
-    return fig, ax
+    return ax
 
 
 @save_fig()
-def plot_weekly_visits_trend(df: pl.DataFrame) -> tuple[Figure, Axes]:
+def plot_weekly_visits_trend(
+    df: pl.DataFrame,
+    ax: Axes | None = None,
+) -> Axes:
     """Total visitor counts per week, to see trend/seasonality over time."""
     weekly = (
         df.group_by("date_range_start")
@@ -123,24 +144,29 @@ def plot_weekly_visits_trend(df: pl.DataFrame) -> tuple[Figure, Axes]:
         .sort("date_range_start")
     )
 
-    fig, ax = plt.subplots()
+    ax = _resolve_ax(ax)
     ax.plot(weekly["date_range_start"], weekly["total_visitors"], marker="o")
     ax.set_xlabel("Week starting")
     ax.set_ylabel("#Visitors")
-    fig.autofmt_xdate()
-    return fig, ax
+    fig = ax.get_figure()
+    if fig:
+        fig.autofmt_xdate()
+    return ax
 
 
 @save_fig()
 def plot_distance_from_home_dist(
-    df: pl.DataFrame, max_distance: float | None = None, log_scale: bool = False
-) -> tuple[Figure, Axes]:
+    df: pl.DataFrame,
+    max_distance: float | None = None,
+    log_scale: bool = False,
+    ax: Axes | None = None,
+) -> Axes:
     """Distribution of how far visitors traveled from home (meters, per Advan schema)."""
     dist = df["distance_from_home"].drop_nulls()
     if max_distance is not None:
         dist = dist.filter(dist <= max_distance)
 
-    fig, ax = plt.subplots()
+    ax = _resolve_ax(ax)
 
     if log_scale:
         dist = dist.filter(dist > 0)  # logspace needs strictly positive values
@@ -154,17 +180,19 @@ def plot_distance_from_home_dist(
         ax.set_xlabel("Distance from home (m)")
 
     ax.set_ylabel("#POI-weeks")
-    return fig, ax
+    return ax
 
 
 @save_fig()
 def plot_dwell_time_dist(
-    df: pl.DataFrame, log_scale: bool = False
-) -> tuple[Figure, Axes]:
+    df: pl.DataFrame,
+    log_scale: bool = False,
+    ax: Axes | None = None,
+) -> Axes:
     """Distribution of median dwell time. median_dwell is cast to numeric, dropping non-parsable values."""
     dwell = df["median_dwell"].cast(pl.Float64, strict=False).drop_nulls()
 
-    fig, ax = plt.subplots()
+    ax = _resolve_ax(ax)
 
     if log_scale:
         dwell = dwell.filter(dwell > 0)  # logspace needs strictly positive values
@@ -178,13 +206,16 @@ def plot_dwell_time_dist(
         ax.set_xlabel("Median dwell time (minutes)")
 
     ax.set_ylabel("#POI-weeks")
-    return fig, ax
+    return ax
 
 
 @save_fig()
-def plot_visits_vs_visitors_scatter(df: pl.DataFrame) -> tuple[Figure, Axes]:
+def plot_visits_vs_visitors_scatter(
+    df: pl.DataFrame,
+    ax: Axes | None = None,
+) -> Axes:
     """Relationship between total visits and unique visitors per POI-week."""
-    fig, ax = plt.subplots()
+    ax = _resolve_ax(ax)
     ax.scatter(df["visitor_counts"], df["visit_counts"], alpha=0.3, s=10)
     ax.set_xlabel("#Unique visitors")
     ax.set_ylabel("#Visits")
@@ -197,15 +228,17 @@ def plot_visits_vs_visitors_scatter(df: pl.DataFrame) -> tuple[Figure, Axes]:
         label="visits = visitors",
     )
     ax.legend()
-    return fig, ax
+    return ax
 
 
 @save_fig()
 def plot_poi_locations(
-    points: gpd.GeoDataFrame, base: gpd.GeoDataFrame
-) -> tuple[Figure, Axes]:
+    points: gpd.GeoDataFrame,
+    base: gpd.GeoDataFrame,
+    ax: Axes | None = None,
+) -> Axes:
     """Plot location of POIs onto basemap"""
-    fig, ax = plt.subplots(figsize=(12, 8))
+    ax = _resolve_ax(ax, figsize=(12, 8))
     base.plot(ax=ax, color="#f0efeb", edgecolor="gray", linewidth=0.5)
     points.plot(ax=ax, markersize="visitor_counts", alpha=0.6, color="crimson")
     for x, y, location_name in zip(
@@ -221,19 +254,21 @@ def plot_poi_locations(
     ax.set_xlim(-125, -66)
     ax.set_ylim(24, 50)
     ax.set_axis_off()
-    return fig, ax
+    return ax
 
 
 @save_fig()
 def plot_region_population_counts(
-    points: gpd.GeoDataFrame, base: gpd.GeoDataFrame
-) -> tuple[Figure, Axes]:
+    points: gpd.GeoDataFrame,
+    base: gpd.GeoDataFrame,
+    ax: Axes | None = None,
+) -> Axes:
     joined = base.sjoin(points, how="left", predicate="intersects")
     agg = joined.groupby(["id", "region"])["visitor_counts"].sum().reset_index()
     agg["visitor_counts"] = agg["visitor_counts"]
     result = base.merge(agg, on="id", how="left").fillna(0)
 
-    fig, ax = plt.subplots()
+    ax = _resolve_ax(ax)
     result.plot(
         column="visitor_counts",
         ax=ax,
@@ -243,20 +278,26 @@ def plot_region_population_counts(
     )
     ax.set_title("Visitor Counts by Region")
     ax.axis("off")
-    return fig, ax
+    return ax
 
 
 @save_fig()
-def plot_poi_visitor_distribution(df: pl.DataFrame) -> tuple[Figure, Axes]:
+def plot_poi_visitor_distribution(
+    df: pl.DataFrame,
+    ax: Axes | None = None,
+) -> Axes:
     agg = df.group_by("id_store").agg(pl.col("visitor_counts").sum())
     series = agg["visitor_counts"]
-    fig, ax = plt.subplots()
+    ax = _resolve_ax(ax)
     ax.hist(series)
-    return fig, ax
+    return ax
 
 
 @save_fig()
-def plot_poi_visitor_ccdf(df: pl.DataFrame) -> tuple[Figure, Axes]:
+def plot_poi_visitor_ccdf(
+    df: pl.DataFrame,
+    ax: Axes | None = None,
+) -> Axes:
     agg = df.group_by("id_store").agg(pl.col("visitor_counts").sum())
     series = agg["visitor_counts"].to_numpy()
 
@@ -269,7 +310,7 @@ def plot_poi_visitor_ccdf(df: pl.DataFrame) -> tuple[Figure, Axes]:
     # strictly greater than it is (n - i) / n
     ccdf = 1.0 - (np.arange(1, n + 1) / n)
 
-    fig, ax = plt.subplots()
+    ax = _resolve_ax(ax)
     ax.plot(sorted_vals, ccdf, marker=".", linestyle="none")
     ax.set_xscale("log")
     ax.set_yscale("log")
@@ -277,4 +318,4 @@ def plot_poi_visitor_ccdf(df: pl.DataFrame) -> tuple[Figure, Axes]:
     ax.set_ylabel("P(X > x)")
     ax.set_title("CCDF of POI Visitor Counts")
 
-    return fig, ax
+    return ax
