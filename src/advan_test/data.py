@@ -57,6 +57,11 @@ def load_weekly_patterns_plus(file_path: Path | str) -> pl.DataFrame:
         "latitude": pl.Float64,
         "naics_code": pl.Utf8,
         "top_category": pl.Utf8,
+        "sub_category": pl.Utf8,
+        "poi_cbg": pl.Utf8,
+        "msa_code": pl.Utf8,
+        "date_range_start": pl.Datetime,
+        "date_range_end": pl.Datetime,
     }
 
     df = pl.read_csv(file_path, schema_overrides=schema)
@@ -68,6 +73,10 @@ def load_weekly_patterns_plus(file_path: Path | str) -> pl.DataFrame:
         .str.json_decode(dtype=pl.List(pl.Int64))
         .list.to_array(168),
         pl.col("visitor_home_cbgs").map_elements(
+            _parse_cbgs,
+            return_dtype=pl.Object,
+        ),
+        pl.col("bucketed_dwell_times").map_elements(
             _parse_cbgs,
             return_dtype=pl.Object,
         ),
