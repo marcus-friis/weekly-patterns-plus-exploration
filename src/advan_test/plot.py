@@ -242,3 +242,37 @@ def plot_region_population_counts(
     ax.set_title("Visitor Counts by Region")
     ax.axis("off")
     return fig, ax
+
+
+@save_fig()
+def plot_poi_visitor_distribution(df: pl.DataFrame) -> tuple[plt.Figure, plt.Axes]:
+    agg = df.group_by("id_store").agg(pl.col("visitor_counts").sum())
+    series = agg["visitor_counts"]
+    fig, ax = plt.subplots()
+    ax.hist(series)
+    return fig, ax
+
+
+@save_fig()
+def plot_poi_visitor_ccdf(df: pl.DataFrame) -> tuple[plt.Figure, plt.Axes]:
+    agg = df.group_by("id_store").agg(pl.col("visitor_counts").sum())
+    series = agg["visitor_counts"].to_numpy()
+
+    # Sort values ascending
+    sorted_vals = np.sort(series)
+    n = len(sorted_vals)
+
+    # CCDF: P(X > x) for each sorted value
+    # For the i-th smallest value (1-indexed), the fraction of points
+    # strictly greater than it is (n - i) / n
+    ccdf = 1.0 - (np.arange(1, n + 1) / n)
+
+    fig, ax = plt.subplots()
+    ax.plot(sorted_vals, ccdf, marker=".", linestyle="none")
+    ax.set_xscale("log")
+    ax.set_yscale("log")
+    ax.set_xlabel("Visitor counts")
+    ax.set_ylabel("P(X > x)")
+    ax.set_title("CCDF of POI Visitor Counts")
+
+    return fig, ax

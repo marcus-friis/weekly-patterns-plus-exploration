@@ -31,3 +31,5 @@ if __name__ == "__main__":
     plot.plot_visits_vs_visitors_scatter(df)
     plot.plot_poi_locations(points, states)
     plot.plot_region_population_counts(points, states)
+    plot.plot_poi_visitor_distribution(df)
+    plot.plot_poi_visitor_ccdf(df)
