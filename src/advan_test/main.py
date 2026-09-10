@@ -1,9 +1,8 @@
 import geopandas as gpd
-import matplotlib.pyplot as plt
 from shapely.geometry import Point
 
+from advan_test import plot
 from advan_test.data import load_weekly_patterns_plus
-import advan_test.plot as plot
 from advan_test.utils import project_root
 
 DATA_PATH = project_root() / "data"
