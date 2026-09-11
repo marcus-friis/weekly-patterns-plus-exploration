@@ -239,7 +239,8 @@ def plot_poi_locations(
 ) -> Axes:
     """Plot location of POIs onto basemap"""
     ax = _resolve_ax(ax, figsize=(12, 8))
-    base.plot(ax=ax, color="#f0efeb", edgecolor="gray", linewidth=0.5)
+    if base.shape[0] > 0:
+        base.plot(ax=ax, color="#f0efeb", edgecolor="gray", linewidth=0.5)
     points.plot(ax=ax, markersize="visitor_counts", alpha=0.6, color="crimson")
     for x, y, location_name in zip(
         points.geometry.x, points.geometry.y, points["location_name"]
@@ -251,8 +252,6 @@ def plot_poi_locations(
             textcoords="offset points",
             fontsize=6,
         )
-    ax.set_xlim(-125, -66)
-    ax.set_ylim(24, 50)
     ax.set_axis_off()
     return ax
 
