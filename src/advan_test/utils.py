@@ -1,5 +1,6 @@
 from functools import wraps
 from pathlib import Path
+from time import perf_counter
 
 import polars as pl
 
@@ -33,7 +34,12 @@ def save_fig(ext: str = "png"):
     def decorator(func):
         @wraps(func)
         def wrapper(*args, **kwargs):
+            start = perf_counter()
+
             ax = func(*args, **kwargs)
+
+            elapsed = perf_counter() - start
+            print(f"{func.__name__} executed in {elapsed:.4f} seconds")
 
             if kwargs.get("ax") is None:
                 fig = ax.get_figure()
