@@ -1,16 +1,16 @@
 import geopandas as gpd
 from shapely.geometry import Point
 
-from advan_test import plot
-from advan_test.data import load_weekly_patterns_plus
+from advan_test import data, plot
 from advan_test.utils import project_root
 
 DATA_PATH = project_root() / "data"
 CSV_PATH = DATA_PATH / "weekly-patterns-plus-sample.csv"
+PARQUET_DIR_PATH = DATA_PATH / "2025-weekly-patterns-plus"
 US_PATH = DATA_PATH / "us-states.json"
 
 if __name__ == "__main__":
-    df = load_weekly_patterns_plus(CSV_PATH)
+    df = data.load_weekly_patterns_plus_csv(CSV_PATH)
     states = gpd.read_file(US_PATH)
     points = gpd.GeoDataFrame(
         df.to_pandas(),

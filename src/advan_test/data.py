@@ -34,8 +34,8 @@ def _parse_str_int_obj(x: str | None) -> dict[str, int] | None:
     return result
 
 
-def load_weekly_patterns_plus(file_path: Path | str) -> pl.DataFrame:
-    """Load Weekly Patterns Plus By Advan Research into polars dataframe"""
+def load_weekly_patterns_plus_csv(file_path: Path | str) -> pl.DataFrame:
+    """Load Weekly Patterns Plus By Advan Research from csv into polars dataframe"""
     schema = {
         "id_store": pl.Utf8,
         "ticker": pl.Utf8,
@@ -103,3 +103,26 @@ def load_weekly_patterns_plus(file_path: Path | str) -> pl.DataFrame:
         ],
     )
     return df
+
+
+def load_weekly_patterns_plus_parquet(dir_path: Path | str) -> pl.LazyFrame:
+    """Lazily load Weekly Patterns Plus parquet shards into a single LazyFrame."""
+    dir_path = Path(dir_path)
+
+    lf = pl.scan_parquet(dir_path / "*.parquet")
+    # obj_cols = [
+    #     "related_same_week_brand",
+    #     "related_same_day_brand",
+    #     "bucketed_dwell_times",
+    #     "visitor_home_cbgs",
+    #     "visitor_country_of_origin",
+    #     "visitor_daytime_cbgs",
+    #     "visitor_home_aggregation",
+    # ]
+    # lf = lf.with_columns(
+    #     *[
+    #         pl.col(col).map_elements(_parse_str_int_obj, return_dtype=pl.Object)
+    #         for col in obj_cols
+    #     ]
+    # )
+    return lf
