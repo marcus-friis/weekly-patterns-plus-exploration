@@ -93,7 +93,14 @@ def plot_visits_by_hour_per_day(
     lf: pl.LazyFrame,
     ax: Axes | None = None,
 ) -> Axes:
-    hour_sum = lf["visits_by_each_hour"].to_numpy().sum(axis=0)
+    dtype = pl.List(pl.UInt32)
+    hour_sum = (
+        lf.filter(pl.col("VISITS_BY_EACH_HOUR").is_not_null())
+        .select(pl.col("VISITS_BY_EACH_HOUR").str.json_decode(dtype).list.to_array(168))
+        .collect()
+        .to_numpy()
+        .sum(axis=0)
+    )[0]
     n = hour_sum.shape[0]
 
     hours_per_day = 24
