@@ -16,6 +16,7 @@ dependencies = [
     "orjson>=3.12.0",
     "polars>=1.44.2",
     "pyarrow>=25.0.1",
+    "scipy>=1.18.1",
     "seaborn>=0.13.2",
 ]
 
