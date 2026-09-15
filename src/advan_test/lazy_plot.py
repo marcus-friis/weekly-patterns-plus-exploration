@@ -6,10 +6,19 @@ from matplotlib.axes import Axes
 from advan_test.utils import save_fig
 
 
+class ResolveAxException(Exception): ...
+
+
 def _resolve_ax(ax: Axes | None, **subplots_kwargs) -> Axes:
     """Return ax. If ax is given, reuse its figure; else create both."""
     if ax is None:
-        _, ax = plt.subplots(**subplots_kwargs)
+        _, ax_raw = plt.subplots(nrows=1, ncols=1, **subplots_kwargs)
+        if isinstance(ax_raw, Axes):
+            return ax_raw
+        elif isinstance(ax_raw, np.ndarray):
+            return ax_raw[0]
+        else:
+            raise ResolveAxException
     return ax
 
 
