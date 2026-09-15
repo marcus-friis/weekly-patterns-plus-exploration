@@ -16,12 +16,5 @@ pl.Config.set_engine_affinity("streaming")
 if __name__ == "__main__":
     lf = data.load_weekly_patterns_plus_parquet(PARQUET_DIR_PATH)
 
-    lp.plot_pois_by_dimension(lf,"TOP_CATEGORY", 10)
-    lp.plot_pois_by_dimension(lf, "REGION", 10)
-    lp.plot_dwell_time_dist(lf, log_scale=False)
-    lp.plot_dwell_time_dist(lf, log_scale=True)
-    lp.plot_poi_visitor_distribution(lf)
-    lp.plot_poi_visitor_ccdf(lf)
-    lp.plot_weekly_visits_trend(lf)
-    lp.plot_visits_by_weekday(lf)
     lp.plot_visitor_dist_by_region(lf)
+    lp.plot_visitor_dist_by_region_duckdb(PARQUET_DIR_PATH)

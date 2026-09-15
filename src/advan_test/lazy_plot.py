@@ -1,3 +1,6 @@
+from pathlib import Path
+
+import duckdb
 import matplotlib.pyplot as plt
 import numpy as np
 import polars as pl
@@ -24,13 +27,32 @@ def _resolve_ax(ax: Axes | None, **subplots_kwargs) -> Axes:
 
 @save_fig()
 def plot_visitor_dist_by_region(lf: pl.LazyFrame, ax: Axes | None = None) -> Axes:
-    """THIS IS SLOW!!!"""
-    ax = _resolve_ax(ax)
     bins = np.linspace(0, 200, 11)
-    regions = lf.select("REGION").unique().collect()["REGION"]
-    for region in regions:
-        df_filtered = lf.filter(pl.col("REGION") == region).collect()
-        ax.hist(df_filtered["VISITOR_COUNTS"], bins=bins, label=region)
+    ax = _resolve_ax(ax)
+
+    df = lf.select("REGION", "VISITOR_COUNTS").collect()  # single scan
+    for (region,), group in df.group_by("REGION"):
+        ax.hist(group["VISITOR_COUNTS"], bins=bins, label=region)
+    ax.legend()
+    return ax
+
+
+@save_fig()
+def plot_visitor_dist_by_region_duckdb(
+    parquet_glob: str | Path,
+    ax: Axes | None = None,
+) -> Axes:
+    con = duckdb.connect()
+    bins = np.linspace(0, 200, 11)
+
+    df = con.execute(f"""
+        SELECT REGION, VISITOR_COUNTS
+        FROM read_parquet('{parquet_glob}')
+    """).pl()
+
+    ax = _resolve_ax(ax)
+    for region, group in df.group_by("REGION"):
+        ax.hist(group["VISITOR_COUNTS"], bins=bins, label=region[0])
     ax.legend()
     return ax
 
