@@ -11,6 +11,7 @@ Requires the `typst` CLI to be installed and on PATH:
       winget install --id Typst.Typst
       uv tool install typst   (via the `typst-cli` PyPI wrapper, if you prefer)
 """
+
 from __future__ import annotations
 
 import argparse
@@ -19,7 +20,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-from advan_test.utils import project_root
+from wpp.utils import project_root
 
 SUPPORTED_EXTS = {".png", ".jpg", ".jpeg", ".svg"}
 
@@ -55,12 +56,12 @@ def build_typst_source(image_paths: list[Path], title: str) -> str:
         # on the same page: the image is constrained to whatever space is
         # left after the title, rather than overflowing onto the next page.
         lines.append(
-            f'#grid(\n'
-            f'  rows: (auto, 1fr),\n'
-            f'  row-gutter: 0.4in,\n'
-            f'  align(center)[= {slide_title}],\n'
+            f"#grid(\n"
+            f"  rows: (auto, 1fr),\n"
+            f"  row-gutter: 0.4in,\n"
+            f"  align(center)[= {slide_title}],\n"
             f'  align(center + horizon)[#image("{rel_path}", height: 100%, width: 100%, fit: "contain")],\n'
-            f')'
+            f")"
         )
         lines.append("#pagebreak()")
         lines.append("")

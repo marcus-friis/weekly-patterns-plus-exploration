@@ -1,10 +1,10 @@
 [project]
-name = "advan-test"
+name = "wpp"
 version = "0.1.0"
-description = "Add your description here"
+description = "Exploration of weekly patterns plus data by Advan Research"
 readme = "README.md"
 authors = [
-    { name = "Marcus", email = "marcus.friis99@gmail.com" }
+    { name = "Marcus", email = "marfri@itu.dk" }
 ]
 requires-python = ">=3.14"
 dependencies = [
@@ -24,7 +24,7 @@ dependencies = [
 package = true
 
 [project.scripts]
-advan-test = "advan_test:main"
+wpp = "wpp:main"
 
 [build-system]
 requires = ["uv_build>=0.12.8,<0.13.0"]

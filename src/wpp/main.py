@@ -1,9 +1,9 @@
 import polars as pl
 import seaborn as sns
 
-from advan_test import data
-from advan_test import lazy_plot as lp
-from advan_test.utils import project_root
+from wpp import data
+from wpp import lazy_plot as lp
+from wpp.utils import project_root
 
 DATA_PATH = project_root() / "data"
 CSV_PATH = DATA_PATH / "weekly-patterns-plus-sample.csv"

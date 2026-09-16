@@ -10,7 +10,7 @@ Little project for trying to process [**Weekly Patterns Plus**](https://app.dewe
 │   └── weekly-patterns-plus-sample.csv
 ├── figures/
 ├── src/
-│   └── advan_test
+│   └── wpp
 │       ├── extra/
 │       │   └── slides.py
 │       ├── __init__.py

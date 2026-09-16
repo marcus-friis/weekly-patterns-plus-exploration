@@ -4,7 +4,7 @@ import numpy as np
 import polars as pl
 from matplotlib.axes import Axes
 
-from advan_test.utils import save_fig
+from wpp.utils import save_fig
 
 
 def _resolve_ax(ax: Axes | None, **subplots_kwargs) -> Axes:
