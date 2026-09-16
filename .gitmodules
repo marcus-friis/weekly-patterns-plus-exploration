@@ -1,0 +1,3 @@
+[submodule "wpp-app"]
+	path = wpp-app
+	url = https://github.com/marcus-friis/wpp-app
