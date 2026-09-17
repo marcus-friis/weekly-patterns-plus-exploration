@@ -11,10 +11,7 @@ DUCK_PATH = DATA_PATH / "db.duckdb"
 PARQUET_DIR_PATH = DATA_PATH / "2025-weekly-patterns-plus"
 DATA_GLOB = PARQUET_DIR_PATH / "*.parquet"
 
-STATES = {
-    "12": "florida",
-    "04": "arizona",
-}
+STATES = {"12": "florida", "04": "arizona", "48": "texas"}
 
 
 def _new_connection(database: str | Path = DUCK_PATH) -> duckdb.DuckDBPyConnection:
