@@ -18,13 +18,14 @@ dependencies = [
     "pyarrow>=25.0.1",
     "scipy>=1.18.1",
     "seaborn>=0.13.2",
+    "typer>=0.27.2",
 ]
 
 [tool.uv]
 package = true
 
 [project.scripts]
-wpp = "wpp:main"
+wpp = "wpp.cli:app"
 
 [build-system]
 requires = ["uv_build>=0.12.8,<0.13.0"]

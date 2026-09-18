@@ -11,7 +11,22 @@ DUCK_PATH = DATA_PATH / "db.duckdb"
 PARQUET_DIR_PATH = DATA_PATH / "2025-weekly-patterns-plus"
 DATA_GLOB = PARQUET_DIR_PATH / "*.parquet"
 
-STATES = {"12": "florida", "04": "arizona", "48": "texas"}
+STATES = {
+    "04": "arizona",
+    "06": "california",
+    "12": "florida",
+    "15": "hawaii",
+    "36": "new-york",
+    "48": "texas",
+}
+
+
+def _check_state(state_fips: str) -> str:
+    if state_fips not in STATES:
+        raise ValueError(
+            f"Unknown state FIPS {state_fips!r}; expected one of {sorted(STATES)}"
+        )
+    return state_fips
 
 
 def _new_connection(database: str | Path = DUCK_PATH) -> duckdb.DuckDBPyConnection:
@@ -27,21 +42,27 @@ def connect(database: str | Path = DUCK_PATH) -> duckdb.DuckDBPyConnection:
 
 
 @contextmanager
-def get_con(database: str | Path = DUCK_PATH):
+def get_con(database: str | Path = DUCK_PATH, debug: bool = True):
     con = _new_connection(database)
+    con.execute("SET enable_progress_bar = true;")
+    con.execute("SET enable_progress_bar_print = true;")
     try:
         yield con
     finally:
         con.close()
 
 
-def create_block_group_table(state_fips: str):
+def create_block_group_table(state_fips: str, force: bool = False):
     """Load a TIGER block-group shapefile into a table named e.g. bg_12 (Florida)."""
+    _check_state(state_fips)
     shp_path = (
         DATA_PATH / "shps" / f"tl_2025_{state_fips}_bg" / f"tl_2025_{state_fips}_bg.shp"
     )
     table_name = f"bg_{state_fips}"
+    print(f"Building {table_name} from {shp_path}...")
     with get_con() as con:
+        if force:
+            con.execute(f"DROP TABLE IF EXISTS {table_name}")
         con.execute(f"""
             CREATE TABLE IF NOT EXISTS {table_name} AS
             SELECT * FROM ST_Read('{shp_path}')
@@ -50,9 +71,13 @@ def create_block_group_table(state_fips: str):
             CREATE INDEX IF NOT EXISTS {table_name}_idx
             ON {table_name} USING RTREE (geom)
         """)
+    print(f"Done: {table_name}")
 
 
-def create_state_boundaries():
+def create_state_boundaries(state_fips: str, force: bool = False):
+    _check_state(state_fips)
+    name = STATES[state_fips]
+    print(f"Building state_boundaries entry for {name} ({state_fips})...")
     with get_con() as con:
         con.execute("""
             CREATE TABLE IF NOT EXISTS state_boundaries (
@@ -61,49 +86,50 @@ def create_state_boundaries():
                 geom GEOMETRY
             )
         """)
-        existing = {
-            row[0]
-            for row in con.execute("SELECT fips FROM state_boundaries").fetchall()
-        }
-        for fips, name in STATES.items():
-            if fips in existing:
-                continue
-            con.execute(f"""
-                INSERT INTO state_boundaries
-                SELECT '{fips}', '{name}', ST_Union_Agg(geom)
-                FROM bg_{fips}
-            """)
+        if force:
+            con.execute("DELETE FROM state_boundaries WHERE fips = ?", [state_fips])
+        exists = con.execute(
+            "SELECT 1 FROM state_boundaries WHERE fips = ?", [state_fips]
+        ).fetchone()
+        if exists:
+            print(f"  {name} ({state_fips}) already present, skipping")
+            return
+        con.execute(f"""
+            INSERT INTO state_boundaries
+            SELECT '{state_fips}', '{name}', ST_Union_Agg(geom)
+            FROM bg_{state_fips}
+        """)
+    print(f"Done: state_boundaries entry for {name}")
 
 
-def create_wpp(state_fips: str | None = None):
-    if state_fips == None:
-        query = f"""
-          CREATE TABLE IF NOT EXISTS wpp AS
-            SELECT *
+def create_wpp(state_fips: str, force: bool = False):
+    _check_state(state_fips)
+    table_name = f"wpp_{state_fips}"
+    bg_table = f"bg_{state_fips}"
+    query = f"""
+      CREATE TABLE IF NOT EXISTS {table_name} AS
+        WITH t AS (
+            SELECT *, ST_Point(LONGITUDE, LATITUDE) AS pt
             FROM '{DATA_GLOB}'
-        """
-    else:
-        table_name = f"wpp_{state_fips}"
-        bg_table = f"bg_{state_fips}"
-        query = f"""
-          CREATE TABLE IF NOT EXISTS {table_name} AS
-            WITH t AS (
-                SELECT *, ST_Point(LONGITUDE, LATITUDE) AS pt
-                FROM '{DATA_GLOB}'
-            )
-            SELECT DISTINCT t.* EXCLUDE (pt)
-            FROM t
-            JOIN {bg_table} AS boundary
-              ON boundary.geom && t.pt
-             AND ST_Within(t.pt, boundary.geom)
-        """
+        )
+        SELECT DISTINCT t.* EXCLUDE (pt)
+        FROM t
+        JOIN {bg_table} AS boundary
+          ON boundary.geom && t.pt
+         AND ST_Within(t.pt, boundary.geom)
+    """
+    print(f"Building {table_name} (this may take a while)...")
     with get_con() as con:
+        if force:
+            con.execute(f"DROP TABLE IF EXISTS {table_name}")
         con.execute(query)
+    print(f"Done: {table_name}")
 
 
-def create_pois(state_fips: str | None = None):
-    table_name = f"pois_{state_fips}" if state_fips else "pois"
-    source_table = f"wpp_{state_fips}" if state_fips else "wpp"
+def create_pois(state_fips: str, force: bool = False):
+    _check_state(state_fips)
+    table_name = f"pois_{state_fips}"
+    source_table = f"wpp_{state_fips}"
     query = f"""
         CREATE TABLE IF NOT EXISTS {table_name} AS
         SELECT DISTINCT
@@ -114,9 +140,23 @@ def create_pois(state_fips: str | None = None):
             LONGITUDE, LATITUDE
         FROM {source_table}
     """
+    print(f"Building {table_name} from {source_table}...")
     with get_con() as con:
+        if force:
+            con.execute(f"DROP TABLE IF EXISTS {table_name}")
         con.execute(query)
+    print(f"Done: {table_name}")
 
 
-if __name__ == "__main__":
-    create_state_boundaries()
+def build_state(state_fips: str, force: bool = False):
+    _check_state(state_fips)
+    create_block_group_table(state_fips, force=force)
+    create_state_boundaries(state_fips, force=force)
+    create_wpp(state_fips, force=force)
+    create_pois(state_fips, force=force)
+
+
+def build_all(force: bool = False):
+    for fips in STATES:
+        print(f"=== Building state {STATES[fips]} ({fips}) ===")
+        build_state(fips, force=force)
