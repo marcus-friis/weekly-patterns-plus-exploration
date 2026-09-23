@@ -159,7 +159,7 @@ def create_pois(state_fips: str, force: bool = False):
 
 def create_block_group_poi_visits(state_fips: str, force: bool = False):
     _check_state(state_fips)
-    table_name = f"block_group_poi_visits_{state_fips}"
+    table_name = f"bg_poi_visits_{state_fips}"
     source_table = f"wpp_{state_fips}"
     query = f"""
         CREATE TABLE IF NOT EXISTS {table_name} AS
