@@ -26,6 +26,11 @@ def build_state(state: str, force: bool = False):
 
 
 @app.command()
+def create_block_group_poi_visits(state: str, force: bool = False):
+    db.create_block_group_poi_visits(state, force=force)
+
+
+@app.command()
 def build_all(force: bool = False):
     db.build_all(force=force)
 

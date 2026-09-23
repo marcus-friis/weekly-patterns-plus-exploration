@@ -109,20 +109,24 @@ def create_wpp(state_fips: str, force: bool = False):
     query = f"""
       CREATE TABLE IF NOT EXISTS {table_name} AS
         WITH t AS (
-            SELECT *, ST_Point(LONGITUDE, LATITUDE) AS pt
+            SELECT *, ST_Point(LONGITUDE, LATITUDE) AS GEOM
             FROM '{DATA_GLOB}'
         )
-        SELECT DISTINCT t.* EXCLUDE (pt)
+        SELECT DISTINCT t.*
         FROM t
         JOIN {bg_table} AS boundary
-          ON boundary.geom && t.pt
-         AND ST_Within(t.pt, boundary.geom)
+          ON boundary.geom && t.GEOM
+         AND ST_Within(t.GEOM, boundary.geom)
     """
     print(f"Building {table_name} (this may take a while)...")
     with get_con() as con:
         if force:
             con.execute(f"DROP TABLE IF EXISTS {table_name}")
         con.execute(query)
+        # con.execute(f"""
+        #     CREATE INDEX IF NOT EXISTS {table_name}_geom_idx
+        #     ON {table_name} USING RTREE (GEOM)
+        # """)
     print(f"Done: {table_name}")
 
 
@@ -137,8 +141,38 @@ def create_pois(state_fips: str, force: bool = False):
             STREET_ADDRESS, POI_CBG, CITY, REGION, ISO_COUNTRY_CODE,
             TOP_CATEGORY, SUB_CATEGORY,
             OPEN_DATE, CLOSE_DATE,
-            LONGITUDE, LATITUDE
+            LONGITUDE, LATITUDE,
+            GEOM
         FROM {source_table}
+    """
+    print(f"Building {table_name} from {source_table}...")
+    with get_con() as con:
+        if force:
+            con.execute(f"DROP TABLE IF EXISTS {table_name}")
+        con.execute(query)
+        # con.execute(f"""
+        #     CREATE INDEX IF NOT EXISTS {table_name}_geom_idx
+        #     ON {table_name} USING RTREE (GEOM)
+        # """)
+    print(f"Done: {table_name}")
+
+
+def create_block_group_poi_visits(state_fips: str, force: bool = False):
+    _check_state(state_fips)
+    table_name = f"block_group_poi_visits_{state_fips}"
+    source_table = f"wpp_{state_fips}"
+    query = f"""
+        CREATE TABLE IF NOT EXISTS {table_name} AS
+        SELECT
+             ID_STORE,
+             DATE_RANGE_START, DATE_RANGE_END,
+             UNNEST(map_keys(M)) AS HOME_CBG,
+             POI_CBG,
+             UNNEST(map_values(M)) AS VISITOR_COUNT
+         FROM (
+             SELECT *, CAST(VISITOR_HOME_CBGS::JSON AS MAP(VARCHAR, INTEGER)) AS M
+             FROM {source_table}
+         )
     """
     print(f"Building {table_name} from {source_table}...")
     with get_con() as con:
@@ -154,6 +188,7 @@ def build_state(state_fips: str, force: bool = False):
     create_state_boundaries(state_fips, force=force)
     create_wpp(state_fips, force=force)
     create_pois(state_fips, force=force)
+    create_block_group_poi_visits(state_fips, force=force)
 
 
 def build_all(force: bool = False):
