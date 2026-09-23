@@ -187,6 +187,24 @@ def create_block_group_poi_visits(state_fips: str, force: bool = False):
     print(f"Done: {table_name}")
 
 
+def create_block_group_poi_distances(state_fips: str, force: bool = False):
+    table_name = f"bg_poi_dist_{state_fips}"
+    query = f"""
+        CREATE TABLE IF NOT EXISTS {table_name} AS
+        SELECT DISTINCT
+            bgpv.ID_STORE,
+            bgpv.HOME_CBG,
+            ST_Distance_Sphere(p.GEOM, ST_Centroid(bg.geom)) AS DIST_METERS
+        FROM bg_poi_visits_{state_fips} bgpv
+        JOIN pois_{state_fips} p ON bgpv.ID_STORE = p.ID_STORE
+        JOIN bg_{state_fips} bg ON bgpv.HOME_CBG = bg.GEOID
+    """
+    with get_con() as con:
+        if force:
+            con.execute(f"DROP TABLE IF EXISTS {table_name}")
+            con.execute(query)
+
+
 def build_state(state_fips: str, force: bool = False):
     _check_state(state_fips)
     create_block_group_table(state_fips, force=force)
