@@ -163,16 +163,21 @@ def create_block_group_poi_visits(state_fips: str, force: bool = False):
     source_table = f"wpp_{state_fips}"
     query = f"""
         CREATE TABLE IF NOT EXISTS {table_name} AS
-        SELECT
-             ID_STORE,
-             DATE_RANGE_START, DATE_RANGE_END,
-             UNNEST(map_keys(M)) AS HOME_CBG,
-             POI_CBG,
-             UNNEST(map_values(M)) AS VISITOR_COUNT
-         FROM (
-             SELECT *, CAST(VISITOR_HOME_CBGS::JSON AS MAP(VARCHAR, INTEGER)) AS M
-             FROM {source_table}
-         )
+        WITH tmp AS (
+            SELECT
+                 ID_STORE,
+                 DATE_RANGE_START, DATE_RANGE_END,
+                 UNNEST(map_keys(M)) AS HOME_CBG,
+                 POI_CBG,
+                 UNNEST(map_values(M)) AS VISITOR_COUNT
+             FROM (
+                 SELECT *, CAST(VISITOR_HOME_CBGS::JSON AS MAP(VARCHAR, INTEGER)) AS M
+                 FROM {source_table}
+             )
+        )
+        SELECT *
+        FROM tmp
+        WHERE HOME_CBG IN (SELECT GEOID FROM bg_{state_fips})
     """
     print(f"Building {table_name} from {source_table}...")
     with get_con() as con:
