@@ -1,3 +1,5 @@
+mkdir -p tiger2025_bg && cd tiger2025_bg
+
 BASE="https://www2.census.gov/geo/tiger/TIGER2025/BG/"
 
 curl -s "$BASE" | grep -oE 'tl_2025_[0-9]+_bg\.zip' | sort -u > filelist.txt
