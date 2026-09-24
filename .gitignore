@@ -1,6 +1,7 @@
 data/
 figures/
 .tmp/
+*.duckdb*
 
 # Python-generated files
 __pycache__/
