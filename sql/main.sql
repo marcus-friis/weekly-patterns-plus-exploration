@@ -121,6 +121,14 @@ CREATE OR REPLACE TABLE block_groups AS
 
 CREATE INDEX bg_geom_idx ON block_groups USING RTREE (geom);
 
+-- Dim states - from csv with geom
+CREATE OR REPLACE TABLE states AS
+    SELECT bg.STATEFP, s.STATE, ABBR, ST_Union_Agg(geom) AS GEOM
+    FROM block_groups bg
+    JOIN 'data/states.csv' s
+      ON bg.STATEFP = s.STATEFP
+    GROUP BY 1, 2, 3;
+
 -- Lol
 CREATE TABLE IF NOT EXISTS lol AS
     WITH t AS (
