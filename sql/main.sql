@@ -185,12 +185,11 @@ SELECT
      ID_STORE,
      DATE_RANGE_START, DATE_RANGE_END,
      UNNEST(map_keys(M)) AS HOME_GEOID,
-     POI_GEOID,
      UNNEST(map_values(M)) AS VISITOR_COUNT
 FROM (
      SELECT *, CAST(VISITOR_HOME_CBGS::JSON AS MAP(VARCHAR, INTEGER)) AS M
      FROM read_parquet('data/2025-weekly-patterns-plus/*.parquet', union_by_name=false)
 );
 
-CREATE INDEX idx_bgv_poi_geoid ON block_group_visits(POI_GEOID);
+CREATE INDEX idx_bgv_id_store ON block_group_visits(ID_STORE);
 CREATE INDEX idx_bgv_home_geoid ON block_group_visits(HOME_GEOID);
