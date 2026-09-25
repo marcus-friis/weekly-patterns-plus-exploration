@@ -120,6 +120,7 @@ CREATE OR REPLACE TABLE block_groups AS
     SELECT * FROM ST_Read('data/tiger2025_bg/tl_2025_78_bg/tl_2025_78_bg.shp');
 
 CREATE INDEX bg_geom_idx ON block_groups USING RTREE (geom);
+CREATE INDEX idx_bg_geoid ON block_groups(GEOID);
 
 -- Dim states - from csv with geom
 CREATE OR REPLACE TABLE states AS
@@ -154,6 +155,7 @@ SELECT DISTINCT
 FROM 'data/2025-weekly-patterns-plus/*.parquet';
 
 CREATE INDEX idx_pois_id_store ON pois(ID_STORE);
+CREATE INDEX idx_pois_poi_cbg ON pois(POI_CBG);
 
 -- Fact visits table
 CREATE TABLE IF NOT EXISTS visits AS
