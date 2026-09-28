@@ -111,9 +111,6 @@ CREATE OR REPLACE TABLE block_groups_raw AS
     UNION ALL BY NAME
     SELECT * FROM ST_Read('data/tiger2025_bg/tl_2025_78_bg/tl_2025_78_bg.shp');
 
-CREATE INDEX bg_geom_idx ON block_groups USING RTREE (geom);
-CREATE INDEX idx_bg_geoid ON block_groups(GEOID);
-
 CREATE OR REPLACE TABLE median_household_income AS
     SELECT *
     FROM 'data/acs-5-year-median-household-income/*.parquet';
@@ -143,3 +140,6 @@ CREATE OR REPLACE TABLE block_groups AS
     FROM block_groups_raw bg
     LEFT JOIN metropolitan_statistical_areas msa ON bg.COUNTYFP = msa.COUNTYFP AND bg.STATEFP = msa.STATEFP
     LEFT JOIN mhi ON bg.GEOID = mhi.GEOID;
+
+CREATE INDEX bg_geom_idx ON block_groups USING RTREE (geom);
+CREATE INDEX idx_bg_geoid ON block_groups(GEOID);
