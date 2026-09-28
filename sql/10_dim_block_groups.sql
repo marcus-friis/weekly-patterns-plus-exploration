@@ -133,13 +133,13 @@ CREATE OR REPLACE TABLE block_groups AS
     )
     SELECT
         bg.GEOID,
-        bg.OGC_FID, bg.STATEFP, bg.COUNTYFP,
+        bg.OGC_FID, bg.STATEFP, bg.COUNTYFP, bg.ALAND,
         msa.MSA_CODE, msa.MSA_NAME,
         mhi.MEDIAN_HH_INCOME, mhi.MEDIAN_HH_INCOME_MOE,
-        geom AS GEOM
+        geom AS GEOM,
+        St_Centroid(bg.GEOM) AS CENTROID
     FROM block_groups_raw bg
     LEFT JOIN metropolitan_statistical_areas msa ON bg.COUNTYFP = msa.COUNTYFP AND bg.STATEFP = msa.STATEFP
     LEFT JOIN mhi ON bg.GEOID = mhi.GEOID;
 
 CREATE INDEX bg_geom_idx ON block_groups USING RTREE (geom);
-CREATE INDEX idx_bg_geoid ON block_groups(GEOID);
