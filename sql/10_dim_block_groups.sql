@@ -1,12 +1,4 @@
--- Load spatial extension first
--- INSTALL spatial;
--- LOAD spatial;
-
--- Disable preserve_insertion_order
--- SET preserve_insertion_order = false;
-
--- Dim block groups - from tiger shape files
-CREATE OR REPLACE TABLE block_groups AS
+CREATE OR REPLACE TABLE block_groups_raw AS
     SELECT * FROM ST_Read('data/tiger2025_bg/tl_2025_01_bg/tl_2025_01_bg.shp')
     UNION ALL BY NAME
     SELECT * FROM ST_Read('data/tiger2025_bg/tl_2025_02_bg/tl_2025_02_bg.shp')
@@ -122,74 +114,32 @@ CREATE OR REPLACE TABLE block_groups AS
 CREATE INDEX bg_geom_idx ON block_groups USING RTREE (geom);
 CREATE INDEX idx_bg_geoid ON block_groups(GEOID);
 
--- Dim states - from csv with geom
-CREATE OR REPLACE TABLE states AS
-    SELECT bg.STATEFP, s.STATE, ABBR, ST_Union_Agg(geom) AS GEOM
-    FROM block_groups bg
-    JOIN 'data/states.csv' s
-      ON bg.STATEFP = s.STATEFP
-    GROUP BY 1, 2, 3;
-
-CREATE INDEX s_geom_idx ON states USING RTREE (geom);
-CREATE INDEX idx_s_statefp ON block_groups(STATEFP);
-
--- Dim median household income - census data - medium household income
 CREATE OR REPLACE TABLE median_household_income AS
     SELECT *
     FROM 'data/acs-5-year-median-household-income/*.parquet';
 
-CREATE INDEX idx_mhi_geoid ON median_household_income(GEOID);
+CREATE OR REPLACE TABLE metropolitan_statistical_areas AS
+    SELECT DISTINCT
+        "MSA Code" AS MSA_CODE,
+        "MSA Title" AS MSA_NAME,
+        "County Code" AS COUNTY_CODE,
+        SUBSTR("County Code", 3, 3) AS COUNTYFP,
+        SUBSTR("County Code", 1, 2) AS STATEFP,
+        "County Title" AS COUNTY_NAME
+    FROM Read_xlsx('data/qcew-county-msa-csa-crosswalk.xlsx', sheet = 'Jul. 2023 Crosswalk');
 
--- Raw weekly patterns plus data
--- CREATE TABLE IF NOT EXISTS wpp AS
---    WITH t AS (
---        SELECT *, ST_Point(LONGITUDE, LATITUDE) AS GEOM
---        FROM read_parquet('data/2025-weekly-patterns-plus/*.parquet', union_by_name=false)
---        WHERE ISO_COUNTRY_CODE = 'US'
---    )
---    SELECT t.*
---    FROM t
---    JOIN block_groups bg
---      ON bg.geom && t.GEOM
---     AND ST_Within(t.GEOM, bg.geom);
-
--- Dim pois table
-CREATE TABLE IF NOT EXISTS pois AS
-SELECT DISTINCT
-    ID_STORE, PERSISTENT_ID, BRAND, LOCATION_NAME,
-    STREET_ADDRESS, POI_CBG AS POI_GEOID, CITY, REGION, ISO_COUNTRY_CODE,
-    TOP_CATEGORY, SUB_CATEGORY,
-    OPEN_DATE, CLOSE_DATE,
-    LONGITUDE, LATITUDE,
-    ST_Point(LONGITUDE, LATITUDE) AS GEOM
-FROM read_parquet('data/2025-weekly-patterns-plus/*.parquet', union_by_name=false);
-
-CREATE INDEX idx_pois_id_store ON pois(ID_STORE);
-CREATE INDEX idx_pois_poi_geoid ON pois(POI_GEOID);
-
--- Fact visits table
-CREATE TABLE IF NOT EXISTS visits AS
-SELECT
-    ID_STORE, DATE_RANGE_START, DATE_RANGE_END,
-    VISITOR_COUNTS, VISIT_COUNTS, VISITS_BY_DAY, VISITS_BY_EACH_HOUR,
-    DISTANCE_FROM_HOME, MEDIAN_DWELL,
-    VISITOR_HOME_CBGS
-FROM read_parquet('data/2025-weekly-patterns-plus/*.parquet', union_by_name=false);
-
-CREATE INDEX idx_visits_id_store ON visits(ID_STORE);
-CREATE INDEX idx_visits_date ON visits(DATE_RANGE_START);
-
--- Fact visits by block group - unpacked VISITOR_HOME_CBGS
-CREATE TABLE IF NOT EXISTS block_group_visits AS
-SELECT
-     ID_STORE,
-     DATE_RANGE_START, DATE_RANGE_END,
-     UNNEST(map_keys(M)) AS HOME_GEOID,
-     UNNEST(map_values(M)) AS VISITOR_COUNT
-FROM (
-     SELECT *, CAST(VISITOR_HOME_CBGS::JSON AS MAP(VARCHAR, INTEGER)) AS M
-     FROM read_parquet('data/2025-weekly-patterns-plus/*.parquet', union_by_name=false)
-);
-
-CREATE INDEX idx_bgv_id_store ON block_group_visits(ID_STORE);
-CREATE INDEX idx_bgv_home_geoid ON block_group_visits(HOME_GEOID);
+CREATE OR REPLACE TABLE block_groups AS
+    WITH mhi AS (
+        SELECT GEOID, MEDIAN_HH_INCOME, MEDIAN_HH_INCOME_MOE
+        FROM median_household_income
+        WHERE YEAR_END = 2024
+    )
+    SELECT
+        bg.GEOID,
+        bg.OGC_FID, bg.STATEFP, bg.COUNTYFP,
+        msa.MSA_CODE, msa.MSA_NAME,
+        mhi.MEDIAN_HH_INCOME, mhi.MEDIAN_HH_INCOME_MOE,
+        geom AS GEOM
+    FROM block_groups_raw bg
+    LEFT JOIN metropolitan_statistical_areas msa ON bg.COUNTYFP = msa.COUNTYFP AND bg.STATEFP = msa.STATEFP
+    LEFT JOIN mhi ON bg.GEOID = mhi.GEOID;

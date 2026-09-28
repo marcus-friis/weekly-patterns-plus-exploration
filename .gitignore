@@ -2,6 +2,7 @@
 data/*
 # except
 !data/states.csv
+!data/qcew-county-msa-csa-crosswalk.xlsx
 
 figures/
 .tmp/

@@ -33,6 +33,7 @@ def _new_connection(database: str | Path = DUCK_PATH) -> duckdb.DuckDBPyConnecti
     con = duckdb.connect(database)
     con.install_extension("spatial")
     con.load_extension("spatial")
+    con.execute("SET preserve_insertion_order = false")
     return con
 
 
