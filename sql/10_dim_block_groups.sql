@@ -120,13 +120,13 @@ CREATE OR REPLACE TABLE median_household_income AS
 
 CREATE OR REPLACE TABLE cbsa_counties AS
     SELECT
-        "CBSA Code"                                          AS CBSA_CODE,
+        "CBSA Code"                                          AS CBSAFP,
         "CBSA Title"                                         AS CBSA_TITLE,
         CASE "Metropolitan/Micropolitan Statistical Area"
             WHEN 'Metropolitan Statistical Area'  THEN 'Metropolitan'
             WHEN 'Micropolitan Statistical Area'  THEN 'Micropolitan'
         END                                                  AS CBSA_TYPE,
-        "CSA Code"                                           AS CSA_CODE,
+        "CSA Code"                                           AS CSAFP,
         "CSA Title"                                          AS CSA_TITLE,
         "FIPS State Code"                                    AS STATEFP,
         "FIPS County Code"                                   AS COUNTYFP,
@@ -138,14 +138,14 @@ CREATE OR REPLACE TABLE cbsa_counties AS
 
 CREATE OR REPLACE TABLE cbsa AS
     WITH est AS (
-        SELECT CBSA AS CBSA_CODE, POPESTIMATE2025 AS POP_2025
+        SELECT CBSA AS CBSAFP, POPESTIMATE2025 AS POP_2025
         FROM read_csv('data/cbsa-est2025-alldata.csv',
                       encoding = 'latin-1', header = true,
                       types = {'CBSA': 'VARCHAR'})
         WHERE LSAD IN ('Metropolitan Statistical Area', 'Micropolitan Statistical Area')
     ),
     cbsas AS (
-        SELECT DISTINCT CBSA_CODE, CBSA_TITLE, CBSA_TYPE, CSA_CODE, CSA_TITLE
+        SELECT DISTINCT CBSAFP, CBSA_TITLE, CBSA_TYPE, CSAFP, CSA_TITLE
         FROM cbsa_counties
     )
     SELECT
@@ -153,7 +153,7 @@ CREATE OR REPLACE TABLE cbsa AS
         e.POP_2025,
         RANK() OVER (PARTITION BY c.CBSA_TYPE ORDER BY e.POP_2025 DESC) AS POP_RANK_IN_TYPE
     FROM cbsas c
-    LEFT JOIN est e USING (CBSA_CODE);
+    LEFT JOIN est e USING (CBSAFP);
 
 CREATE OR REPLACE TABLE block_groups AS
     WITH mhi AS (
@@ -163,7 +163,7 @@ CREATE OR REPLACE TABLE block_groups AS
     )
     SELECT
         bg.GEOID, bg.OGC_FID, bg.STATEFP, bg.COUNTYFP, bg.ALAND,
-        cc.CBSA_CODE,
+        cc.CBSAFP, cc.CSAFP,
         mhi.MEDIAN_HH_INCOME, mhi.MEDIAN_HH_INCOME_MOE,
         bg.GEOM,
         ST_Centroid(bg.GEOM) AS CENTROID
@@ -174,6 +174,6 @@ CREATE OR REPLACE TABLE block_groups AS
 CREATE INDEX bg_geom_idx ON block_groups USING RTREE (geom);
 
 CREATE OR REPLACE VIEW block_groups_cbsa AS
-SELECT bg.*, c.CBSA_TITLE, c.CBSA_TYPE, c.POP_2025 AS CBSA_POP_2025, c.POP_RANK_IN_TYPE AS CBSA_POP_RANK
+SELECT bg.*, c.CBSA_TITLE, c.CBSA_TYPE, c.CSA_TITLE, c.POP_2025 AS CBSA_POP_2025, c.POP_RANK_IN_TYPE AS CBSA_POP_RANK
 FROM block_groups bg
-LEFT JOIN cbsa c USING (CBSA_CODE);
+LEFT JOIN cbsa c USING (CBSAFP);
