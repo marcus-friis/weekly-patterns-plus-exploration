@@ -9,10 +9,12 @@ _Weekly Patterns Plus_ data and other data is transformed into a _somewhat_ norm
 Specifically, we use data from
 
 - Weekly Patterns Plus by Advan Research
-- Tiger/Line Shapefiles by United States Census Bureau
+- [Data from United States Census Bureau](https://www2.census.gov/)
+  - [Tiger/Line Shapefiles](https://www2.census.gov/geo/tiger/TIGER2025/) - Both *BG* and *CBSA*
+  - List 1
+  - [Metropolitan population estimates](https://www2.census.gov/programs-surveys/popest/datasets/2020-2025/metro/totals/)
 - [US State abbreviations and Fips codes](https://www.bls.gov/respondents/mwr/electronic-data-interchange/appendix-d-usps-state-abbreviations-and-fips-codes.htm) by U.S. Bureau of Labor Statistics
-- [QCEW County-MSA-CSA Crosswalk (For NAICS-Based Data)](https://www.bls.gov/cew/classifications/areas/county-msa-csa-crosswalk.htm)
-- 5-year ACS median household income estimates by United States Census Bureau
+- 5-year ACS median household income estimates by United States Census Bureau (from Dewey)
 
 These sources are transformed into a structure with data about states, census block groups, POIs, and POI visits.
 

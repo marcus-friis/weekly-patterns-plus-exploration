@@ -111,19 +111,49 @@ CREATE OR REPLACE TABLE block_groups_raw AS
     UNION ALL BY NAME
     SELECT * FROM ST_Read('data/tiger2025_bg/tl_2025_78_bg/tl_2025_78_bg.shp');
 
+CREATE OR REPLACE TABLE cbsa_geo AS
+    SELECT * FROM ST_Read('data/tl_2025_us_cbsa/tl_2025_us_cbsa.shp');
+
 CREATE OR REPLACE TABLE median_household_income AS
     SELECT *
     FROM 'data/acs-5-year-median-household-income/*.parquet';
 
-CREATE OR REPLACE TABLE metropolitan_statistical_areas AS
-    SELECT DISTINCT
-        "MSA Code" AS MSA_CODE,
-        "MSA Title" AS MSA_NAME,
-        "County Code" AS COUNTY_CODE,
-        SUBSTR("County Code", 3, 3) AS COUNTYFP,
-        SUBSTR("County Code", 1, 2) AS STATEFP,
-        "County Title" AS COUNTY_NAME
-    FROM Read_xlsx('data/qcew-county-msa-csa-crosswalk.xlsx', sheet = 'Jul. 2023 Crosswalk');
+CREATE OR REPLACE TABLE cbsa_counties AS
+    SELECT
+        "CBSA Code"                                          AS CBSA_CODE,
+        "CBSA Title"                                         AS CBSA_TITLE,
+        CASE "Metropolitan/Micropolitan Statistical Area"
+            WHEN 'Metropolitan Statistical Area'  THEN 'Metropolitan'
+            WHEN 'Micropolitan Statistical Area'  THEN 'Micropolitan'
+        END                                                  AS CBSA_TYPE,
+        "CSA Code"                                           AS CSA_CODE,
+        "CSA Title"                                          AS CSA_TITLE,
+        "FIPS State Code"                                    AS STATEFP,
+        "FIPS County Code"                                   AS COUNTYFP,
+        "FIPS State Code" || "FIPS County Code"              AS COUNTY_GEOID,
+        "County/County Equivalent"                           AS COUNTY_NAME,
+        "Central/Outlying County" = 'Central'                AS IS_CENTRAL_COUNTY
+    FROM read_xlsx('data/list1_2023.xlsx', range = 'A3:L2000', header = true, all_varchar = true)
+    WHERE "CBSA Code" SIMILAR TO '[0-9]{5}';   -- drops footnote rows
+
+CREATE OR REPLACE TABLE cbsa AS
+    WITH est AS (
+        SELECT CBSA AS CBSA_CODE, POPESTIMATE2025 AS POP_2025
+        FROM read_csv('data/cbsa-est2025-alldata.csv',
+                      encoding = 'latin-1', header = true,
+                      types = {'CBSA': 'VARCHAR'})
+        WHERE LSAD IN ('Metropolitan Statistical Area', 'Micropolitan Statistical Area')
+    ),
+    cbsas AS (
+        SELECT DISTINCT CBSA_CODE, CBSA_TITLE, CBSA_TYPE, CSA_CODE, CSA_TITLE
+        FROM cbsa_counties
+    )
+    SELECT
+        c.*,
+        e.POP_2025,
+        RANK() OVER (PARTITION BY c.CBSA_TYPE ORDER BY e.POP_2025 DESC) AS POP_RANK_IN_TYPE
+    FROM cbsas c
+    LEFT JOIN est e USING (CBSA_CODE);
 
 CREATE OR REPLACE TABLE block_groups AS
     WITH mhi AS (
@@ -132,14 +162,18 @@ CREATE OR REPLACE TABLE block_groups AS
         WHERE YEAR_END = 2024
     )
     SELECT
-        bg.GEOID,
-        bg.OGC_FID, bg.STATEFP, bg.COUNTYFP, bg.ALAND,
-        msa.MSA_CODE, msa.MSA_NAME,
+        bg.GEOID, bg.OGC_FID, bg.STATEFP, bg.COUNTYFP, bg.ALAND,
+        cc.CBSA_CODE,
         mhi.MEDIAN_HH_INCOME, mhi.MEDIAN_HH_INCOME_MOE,
-        geom AS GEOM,
-        St_Centroid(bg.GEOM) AS CENTROID
+        bg.GEOM,
+        ST_Centroid(bg.GEOM) AS CENTROID
     FROM block_groups_raw bg
-    LEFT JOIN metropolitan_statistical_areas msa ON bg.COUNTYFP = msa.COUNTYFP AND bg.STATEFP = msa.STATEFP
-    LEFT JOIN mhi ON bg.GEOID = mhi.GEOID;
+    LEFT JOIN cbsa_counties cc USING (STATEFP, COUNTYFP)
+    LEFT JOIN mhi USING (GEOID);
 
 CREATE INDEX bg_geom_idx ON block_groups USING RTREE (geom);
+
+CREATE OR REPLACE VIEW block_groups_cbsa AS
+SELECT bg.*, c.CBSA_TITLE, c.CBSA_TYPE, c.POP_2025 AS CBSA_POP_2025, c.POP_RANK_IN_TYPE AS CBSA_POP_RANK
+FROM block_groups bg
+LEFT JOIN cbsa c USING (CBSA_CODE);
