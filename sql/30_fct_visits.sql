@@ -16,20 +16,15 @@ FROM (
      FROM read_parquet('data/2025-weekly-patterns-plus/*.parquet', union_by_name=false)
 );
 
+-- focused only on top 50 metropolitan statistic areas
 CREATE OR REPLACE TABLE block_group_visit_dist AS
-WITH data AS (
-    SELECT
-        DATE_RANGE_START, HOME_GEOID,
-        ST_Distance_Sphere(p.GEOM, bg.CENTROID) AS DIST,
-        SUM(VISITOR_COUNTS) AS VISITOR_COUNTS
-    FROM block_groups bg
-    JOIN block_group_visits bgv ON bg.GEOID = bgv.HOME_GEOID
-    JOIN pois p ON bgv.ID_STORE = p.ID_STORE
-    GROUP BY 1, 2, 3
-)
-SELECT
-    DATE_RANGE_START, HOME_GEOID,
-    SUM(DIST * VISITOR_COUNTS) / SUM(VISITOR_COUNTS) AS AVG_DIST,
-    SUM(VISITOR_COUNTS) AS VISITOR_COUNTS
-FROM data
-GROUP BY 1, 2;
+    WITH cbsa_filter AS (
+        SELECT GEOID, CENTROID
+        FROM block_groups_cbsa
+        WHERE CBSA_TYPE = 'Metropolitan'
+        AND CBSA_POP_RANK <= 50
+    )
+    SELECT bgv.*, ST_Distance_Sphere(p.GEOM, cbsa_filter.CENTROID) AS DIST
+    FROM block_group_visits bgv
+    JOIN cbsa_filter ON bgv.HOME_GEOID = cbsa_filter.GEOID
+    JOIN pois p ON bgv.ID_STORE = p.ID_STORE;
