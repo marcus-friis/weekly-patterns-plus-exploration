@@ -6,4 +6,5 @@ SELECT DISTINCT
     OPEN_DATE, CLOSE_DATE,
     LONGITUDE, LATITUDE,
     ST_Point(LONGITUDE, LATITUDE) AS GEOM
-FROM read_parquet('data/2025-weekly-patterns-plus/*.parquet', union_by_name=false);
+FROM read_parquet('data/2025-weekly-patterns-plus/*.parquet', union_by_name=false)
+ORDER BY ID_STORE;
