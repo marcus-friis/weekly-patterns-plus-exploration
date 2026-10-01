@@ -18,16 +18,19 @@ FROM (
 )
 ORDER BY DATE_RANGE_START, HOME_GEOID, ID_STORE;
 
--- focused only on top 50 metropolitan statistic areas
-CREATE OR REPLACE TABLE block_group_visit_dist AS
-WITH cbsa_filter AS (
-    SELECT GEOID, CENTROID
-    FROM block_groups_cbsa
-    WHERE CBSA_TYPE = 'Metropolitan'
-    AND CBSA_POP_RANK <= 50
-)
-SELECT bgv.*, ST_Distance_Sphere(p.GEOM, cbsa_filter.CENTROID) AS DIST
+CREATE OR REPLACE TABLE block_group_visits_enhanced AS
+SELECT
+    bgv.DATE_RANGE_START,
+    bgv.DATE_RANGE_END,
+    bgv.HOME_GEOID,
+    bgv.ID_STORE,
+    hbg.CBSAFP       AS HOME_CBSAFP,
+    hbg.CSAFP        AS HOME_CSAFP,
+    pbg.CBSAFP       AS POI_CBSAFP,
+    bgv.VISITOR_COUNTS,
+    ST_Distance_Sphere(p.GEOM, hbg.CENTROID) AS DIST
 FROM block_group_visits bgv
-JOIN cbsa_filter ON bgv.HOME_GEOID = cbsa_filter.GEOID
-JOIN pois p ON bgv.ID_STORE = p.ID_STORE
-ORDER BY DATE_RANGE_START, HOME_GEOID, ID_STORE;
+JOIN pois p                   ON bgv.ID_STORE   = p.ID_STORE
+LEFT JOIN block_groups_cbsa hbg ON bgv.HOME_GEOID = hbg.GEOID
+LEFT JOIN block_groups_cbsa pbg ON p.POI_GEOID    = pbg.GEOID
+ORDER BY bgv.DATE_RANGE_START, bgv.HOME_GEOID, bgv.ID_STORE;
