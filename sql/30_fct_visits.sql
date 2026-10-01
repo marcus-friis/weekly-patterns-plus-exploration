@@ -24,13 +24,9 @@ SELECT
     bgv.DATE_RANGE_END,
     bgv.HOME_GEOID,
     bgv.ID_STORE,
-    hbg.CBSAFP       AS HOME_CBSAFP,
-    hbg.CSAFP        AS HOME_CSAFP,
-    pbg.CBSAFP       AS POI_CBSAFP,
     bgv.VISITOR_COUNTS,
     ST_Distance_Sphere(p.GEOM, hbg.CENTROID) AS DIST
 FROM block_group_visits bgv
 JOIN pois p                   ON bgv.ID_STORE   = p.ID_STORE
 LEFT JOIN block_groups_cbsa hbg ON bgv.HOME_GEOID = hbg.GEOID
-LEFT JOIN block_groups_cbsa pbg ON p.POI_GEOID    = pbg.GEOID
 ORDER BY bgv.DATE_RANGE_START, bgv.HOME_GEOID, bgv.ID_STORE;
