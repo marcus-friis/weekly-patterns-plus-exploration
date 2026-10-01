@@ -1,9 +1,11 @@
 import geopandas as gpd
+import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
 import numpy as np
 import polars as pl
 from matplotlib.axes import Axes
 
+from wpp.data import ClimateEvent
 from wpp.utils import save_fig
 
 
@@ -11,6 +13,40 @@ def _resolve_ax(ax: Axes | None, **subplots_kwargs) -> Axes:
     """Return ax. If ax is given, reuse its figure; else create both."""
     if ax is None:
         _, ax = plt.subplots(**subplots_kwargs)
+    return ax
+
+
+def plot_events(
+    ax: Axes,
+    events: list[ClimateEvent],
+    *,
+    color: str = "tab:red",
+    annotate: bool = True,
+    line_kw: dict | None = None,
+    span_kw: dict | None = None,
+) -> Axes:
+    """Draw point events as axvline and range events as axvspan."""
+    line_kw = {"color": color, "linestyle": "--", "linewidth": 1, **(line_kw or {})}
+    span_kw = {"color": color, "alpha": 0.15, "linewidth": 0, **(span_kw or {})}
+
+    for e in events:
+        if e.is_range:
+            ax.axvspan(e.start, e.end, **span_kw)  # type: ignore[arg-type]
+        else:
+            ax.axvline(e.start, **line_kw)  # type: ignore[arg-type]
+
+        if annotate:
+            ax.annotate(
+                e.label,
+                xy=(mdates.date2num(e.start), 1),
+                xycoords=ax.get_xaxis_transform(),
+                xytext=(3, -4),
+                textcoords="offset points",
+                rotation=90,
+                va="top",
+                ha="left",
+                fontsize=8,
+            )
     return ax
 
 
