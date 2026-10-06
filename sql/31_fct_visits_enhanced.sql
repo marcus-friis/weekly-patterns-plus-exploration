@@ -116,7 +116,6 @@ FROM block_group_visits;
 -- TMIN  = average daily minimum temperature
 -- TMAX  = average daily maximum temperature
 --
--- DATE_RANGE_END is treated as exclusive.
 -- ============================================================
 
 CREATE OR REPLACE TEMP TABLE block_group_temperature_weekly AS
@@ -136,7 +135,7 @@ FROM block_group_visit_weeks w
 JOIN block_group_temperature_daily t
     ON w.HOME_GEOID = t.GEOID
    AND t.DATE >= w.DATE_RANGE_START
-   AND t.DATE <  w.DATE_RANGE_END
+   AND t.DATE <= w.DATE_RANGE_END
 
 GROUP BY
     w.HOME_GEOID,
@@ -169,7 +168,7 @@ FROM poi_visit_weeks w
 JOIN poi_temperature_daily t
     ON w.ID_STORE = t.ID_STORE
    AND t.DATE >= w.DATE_RANGE_START
-   AND t.DATE <  w.DATE_RANGE_END
+   AND t.DATE <= w.DATE_RANGE_END
 
 GROUP BY
     w.ID_STORE,
