@@ -46,15 +46,15 @@ ORDER BY
     u.HOME_GEOID,
     u.ID_STORE;
 
-CREATE OR REPLACE TABLE block_group_visits_enhanced AS
-SELECT
-    bgv.DATE_RANGE_START,
-    bgv.DATE_RANGE_END,
-    bgv.HOME_GEOID,
-    bgv.ID_STORE,
-    bgv.VISITOR_COUNTS,
-    ST_Distance_Sphere(p.GEOM, hbg.CENTROID) AS DIST
-FROM block_group_visits bgv
-JOIN pois p                ON bgv.ID_STORE   = p.ID_STORE
-LEFT JOIN block_groups hbg ON bgv.HOME_GEOID = hbg.GEOID
-ORDER BY bgv.DATE_RANGE_START, bgv.HOME_GEOID, bgv.ID_STORE;
+-- CREATE OR REPLACE TABLE block_group_visits_enhanced AS
+-- SELECT
+--     bgv.DATE_RANGE_START,
+--     bgv.DATE_RANGE_END,
+--     bgv.HOME_GEOID,
+--     bgv.ID_STORE,
+--     bgv.VISITOR_COUNTS,
+--     ST_Distance_Sphere(p.GEOM, hbg.CENTROID) AS DIST
+-- FROM block_group_visits bgv
+-- JOIN pois p                ON bgv.ID_STORE   = p.ID_STORE
+-- LEFT JOIN block_groups hbg ON bgv.HOME_GEOID = hbg.GEOID
+-- ORDER BY bgv.DATE_RANGE_START, bgv.HOME_GEOID, bgv.ID_STORE;
