@@ -15,6 +15,7 @@ Specifically, we use data from
   - [Metropolitan population estimates](https://www2.census.gov/programs-surveys/popest/datasets/2020-2025/metro/totals/)
 - [US State abbreviations and Fips codes](https://www.bls.gov/respondents/mwr/electronic-data-interchange/appendix-d-usps-state-abbreviations-and-fips-codes.htm) by U.S. Bureau of Labor Statistics
 - 5-year ACS median household income estimates by United States Census Bureau (from Dewey)
+- [PRISM Time Series Data](https://prism.oregonstate.edu/data/) for daily heat by the PRISM Group
 
 These sources are transformed into a structure with data about states, census block groups, POIs, and POI visits.
 
