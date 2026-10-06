@@ -1,25 +1,24 @@
 CREATE OR REPLACE TABLE prism_cells AS
-SELECT DISTINCT
+SELECT
+    CELL_ID,
     ROW,
     COL,
-    ROW::VARCHAR || '_' || COL::VARCHAR AS CELL_ID,
-    geometry AS GEOM
-FROM read_parquet(
-    'data/prism/tmean_daily_2025_parquet/*.parquet'
-);
-
+    GEOMETRY AS GEOM
+FROM read_parquet('data/prism/prism_cells.parquet');
+ 
 CREATE INDEX prism_cells_geom_idx
 ON prism_cells
 USING RTREE (GEOM);
 
-
-CREATE OR REPLACE TABLE prism_tmean_daily AS
+CREATE OR REPLACE TABLE prism_t_daily AS
 SELECT
-    ROW::VARCHAR || '_' || COL::VARCHAR AS CELL_ID,
+    CELL_ID,
     DATE::DATE AS DATE,
-    TMEAN
+    TMEAN,
+    TMIN,
+    TMAX
 FROM read_parquet(
-    'data/prism/tmean_daily_2025_parquet/*.parquet'
+    'data/prism/daily/*.parquet'
 )
 WHERE TMEAN IS NOT NULL
 ORDER BY DATE, CELL_ID;
