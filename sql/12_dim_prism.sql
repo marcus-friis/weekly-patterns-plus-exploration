@@ -10,19 +10,6 @@ CREATE INDEX prism_cells_geom_idx
 ON prism_cells
 USING RTREE (GEOM);
 
-CREATE OR REPLACE TABLE prism_t_daily AS
-SELECT
-    CELL_ID,
-    DATE::DATE AS DATE,
-    TMEAN,
-    TMIN,
-    TMAX
-FROM read_parquet(
-    'data/prism/daily/*.parquet'
-)
-WHERE TMEAN IS NOT NULL
-ORDER BY DATE, CELL_ID;
-
 CREATE OR REPLACE TABLE cbsa_prism_cells AS
 SELECT
     cbsa.CBSAFP,
