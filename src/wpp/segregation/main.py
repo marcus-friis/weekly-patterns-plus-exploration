@@ -89,50 +89,82 @@ def compute_segregation_by(
 if __name__ == "__main__":
     con = db.connect(DB_PATH)
     pois = data.get_pois(con)
-    heat = data.get_heat_daily(con, cbsafp="36740")
-    df = data.get_df(con, cbsafp="36740", n_income_groups=N_INCOME_GROUPS)
+    # heat = data.get_heat_daily(con, cbsafp="36740")
+    # df = data.get_df(con, cbsafp="36740", n_income_groups=N_INCOME_GROUPS)
 
     # preprocess
     # remove with too few visitors?
     # remove with not all dates?
 
-    poi_daily_segregation = compute_segregation_by(
-        df, ["ID_STORE", "DATE_RANGE_START"], entropy_segregation(N_INCOME_GROUPS)
+    daily_segregation = data.get_daily_segregation(
+        con,
+        n_income_groups=N_INCOME_GROUPS,
+        segregation_expression="l1",
     )
-    daily_segregation = (
-        poi_daily_segregation.group_by("DATE_RANGE_START")
-        .agg(
-            pl.col("TOTAL_VISITORS").mean().alias("AVG_VISITORS"),
-            pl.col("INCOME_SEGREGATION").mean().alias("AVG_INCOME_SEGREGATION"),
-            (
-                (pl.col("INCOME_SEGREGATION") * pl.col("TOTAL_VISITORS")).sum()
-                / pl.col("TOTAL_VISITORS").sum()
-            ).alias("W_AVG_INCOME_SEGREGATION"),
-            pl.col("DIST").mean().alias("AVG_DIST"),
-            (
-                (pl.col("DIST") * pl.col("TOTAL_VISITORS")).sum()
-                / pl.col("TOTAL_VISITORS").sum()
-            ).alias("W_AVG_DIST"),
+    fig, ax = plt.subplots(figsize=(14, 8))
+
+    for (cbsa_name,), group in daily_segregation.group_by(
+        "CBSA_NAME",
+        maintain_order=True,
+    ):
+        group = group.sort("DATE_RANGE_START")
+
+        ax.plot(
+            group["DATE_RANGE_START"],
+            group["AVG_INCOME_SEGREGATION"],
+            label=cbsa_name,
+            alpha=0.7,
+            linewidth=1,
         )
-        .sort("DATE_RANGE_START")
+
+    ax.set(
+        xlabel="Date",
+        ylabel="Average income segregation",
     )
 
-    fig, axes = plt.subplots(2, sharex=True)
-    axes[0].plot(
-        daily_segregation["DATE_RANGE_START"],
-        daily_segregation["AVG_INCOME_SEGREGATION"],
-    )
-    axes[1].plot(
-        heat["DATE"],
-        heat["AVG_TMEAN"],
-    )
-    fig.savefig("lel.png")
+    sns.despine()
+    fig.tight_layout()
+    fig.savefig("daily_segregation_by_cbsa.png", dpi=300)
     plt.show()
 
-    fig, ax = plt.subplots()
-    x = daily_segregation.with_columns(
-        pl.col("DATE_RANGE_START").dt.date().alias("DATE")
-    ).join(heat, on="DATE")
-    ax.scatter(x["AVG_TMEAN"], x["AVG_INCOME_SEGREGATION"])
-    fig.savefig("leeeel.png")
+    largest_cbsas = (
+        daily_segregation.group_by("CBSA_NAME")
+        .agg(pl.col("AVG_VISITORS").mean().alias("AVG_VISITORS"))
+        .top_k(25, by="AVG_VISITORS")
+        .get_column("CBSA_NAME")
+    )
+
+    plot_data = daily_segregation.filter(pl.col("CBSA_NAME").is_in(largest_cbsas))
+
+    fig, ax = plt.subplots(figsize=(14, 8))
+
+    for (cbsa_name,), group in plot_data.group_by(
+        "CBSA_NAME",
+        maintain_order=True,
+    ):
+        group = group.sort("DATE_RANGE_START")
+
+        ax.plot(
+            group["DATE_RANGE_START"],
+            group["AVG_INCOME_SEGREGATION"],
+            label=cbsa_name,
+            alpha=0.8,
+            linewidth=1.2,
+        )
+
+    ax.set(
+        xlabel="Date",
+        ylabel="Average income segregation",
+    )
+
+    ax.legend(
+        bbox_to_anchor=(1.02, 1),
+        loc="upper left",
+        frameon=False,
+        fontsize=8,
+    )
+
+    sns.despine()
+    fig.tight_layout()
+    fig.savefig("daily_segregation_top_25_cbsas.png", dpi=300)
     plt.show()

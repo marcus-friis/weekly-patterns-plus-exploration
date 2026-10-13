@@ -102,6 +102,7 @@ def get_daily_segregation(
             FROM block_groups_cbsa
             WHERE LSAD = 'M1'
               AND MEDIAN_HH_INCOME IS NOT NULL
+              AND CBSA_POP_RANK <= 10
         ),
 
         source AS (
