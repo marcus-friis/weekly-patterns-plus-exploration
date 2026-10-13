@@ -47,16 +47,29 @@ ORDER BY
     u.ID_STORE;
 
 CREATE OR REPLACE TABLE block_group_visits_enhanced AS
+WITH poi_home_dist AS MATERIALIZED (
+    SELECT
+        hbg.GEOID AS HOME_GEOID,
+        p.ID_STORE,
+        ST_Distance_Sphere(
+            ST_Transform(p.GEOM, 'EPSG:4326', 'EPSG:4269'),
+            hbg.CENTROID
+        ) AS DIST
+    FROM pois p
+    CROSS JOIN block_groups hbg
+)
 SELECT
     bgv.DATE_RANGE_START,
     bgv.DATE_RANGE_END,
     bgv.HOME_GEOID,
     bgv.ID_STORE,
     bgv.VISITOR_COUNTS,
-    ST_Distance_Sphere(ST_Transform(p.GEOM, 'EPSG:4326', 'EPSG:4269'), hbg.CENTROID) AS DIST
-
-
+    phd.DIST
 FROM block_group_visits bgv
-JOIN pois p                ON bgv.ID_STORE   = p.ID_STORE
-LEFT JOIN block_groups hbg ON bgv.HOME_GEOID = hbg.GEOID
-ORDER BY bgv.DATE_RANGE_START, bgv.HOME_GEOID, bgv.ID_STORE;
+JOIN poi_home_dist phd
+    ON bgv.ID_STORE = phd.ID_STORE
+   AND bgv.HOME_GEOID = phd.HOME_GEOID
+ORDER BY
+    bgv.DATE_RANGE_START,
+    bgv.HOME_GEOID,
+    bgv.ID_STORE;
