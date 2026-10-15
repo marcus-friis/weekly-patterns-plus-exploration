@@ -29,22 +29,26 @@ def _check_state(state_fips: str) -> str:
     return state_fips
 
 
-def _new_connection(database: str | Path = DUCK_PATH) -> duckdb.DuckDBPyConnection:
-    con = duckdb.connect(database)
+def _new_connection(
+    database: str | Path = DUCK_PATH, read_only: bool = False
+) -> duckdb.DuckDBPyConnection:
+    con = duckdb.connect(database, read_only=read_only)
     con.install_extension("spatial")
     con.load_extension("spatial")
     con.execute("SET preserve_insertion_order = false")
     return con
 
 
-def connect(database: str | Path = DUCK_PATH) -> duckdb.DuckDBPyConnection:
+def connect(
+    database: str | Path = DUCK_PATH, read_only: bool = False
+) -> duckdb.DuckDBPyConnection:
     """Plain connection — caller is responsible for con.close()."""
-    return _new_connection(database)
+    return _new_connection(database, read_only=read_only)
 
 
 @contextmanager
-def get_con(database: str | Path = DUCK_PATH, debug: bool = True):
-    con = _new_connection(database)
+def get_con(database: str | Path = DUCK_PATH, read_only: bool = False):
+    con = _new_connection(database, read_only=read_only)
     con.execute("SET enable_progress_bar = true;")
     con.execute("SET enable_progress_bar_print = true;")
     try:
