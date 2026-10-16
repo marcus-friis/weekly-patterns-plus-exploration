@@ -13,6 +13,7 @@ Specifically, we use data from
   - [Tiger/Line Shapefiles](https://www2.census.gov/geo/tiger/TIGER2025/) - Both *BG* and *CBSA*
   - [Core based statistical areas (CBSAs), metropolitan divisions, and combined statistical areas (CSAs)](https://www.census.gov/geographies/reference-files/time-series/demo/metro-micro/delineation-files.html)
   - [Metropolitan population estimates](https://www2.census.gov/programs-surveys/popest/datasets/2020-2025/metro/totals/)
+  - [NAICS codes](https://www.census.gov/naics/?48967)
 - [US State abbreviations and Fips codes](https://www.bls.gov/respondents/mwr/electronic-data-interchange/appendix-d-usps-state-abbreviations-and-fips-codes.htm) by U.S. Bureau of Labor Statistics
 - 5-year ACS median household income estimates by United States Census Bureau (from Dewey)
 - [PRISM Time Series Data](https://prism.oregonstate.edu/data/) for daily heat by the PRISM Group
