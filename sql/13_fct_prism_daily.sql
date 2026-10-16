@@ -29,6 +29,6 @@ SELECT
     SUM(t.TMEAN * bgpc.INTERSECTION_AREA) / SUM(bgpc.INTERSECTION_AREA) AS AVG_TMEAN
 FROM block_group_prism_cells bgpc
 JOIN block_groups bg ON bgpc.GEOID = bg.GEOID
-JOIN prism_tmean_daily t ON bgpc.CELL_ID = t.CELL_ID
+JOIN prism_t_daily t t ON bgpc.CELL_ID = t.CELL_ID
 GROUP BY bgpc.GEOID, t.DATE
 ORDER BY t.DATE, bgpc.GEOID;
