@@ -1,0 +1,56 @@
+# Category mapping
+
+Weekly patterns plus categorizes POIs into [NAICS](https://www.census.gov/naics/). We want to work with a subset of these categories, similar to [_Mobility patterns are associated with experienced income segregation in large US cities_](https://www.nature.com/articles/s41467-021-24899-8). Inspired by [Varying relationships between experienced income segregation and travel behaviour across neighbourhood social and urban contexts](https://www.nature.com/articles/s41467-025-66585-z) categorization, we use the following categorization (from NAICS 2022)
+
+- Schools (Educational Services): 611%
+  - Elementary and High Schools: 611110 **REMOVED BY ADVAN!!**
+  - Junior College: 611210
+  - Universities: 611310
+- Libraries: 519210
+- Museums + historical sites (indoor vs outdoor?)
+  - Museums: 712110
+  - Historical Sites: 712120
+- Parks + forests
+  - Zoos and Botanical Gardens: 712130
+  - Nature Parks and Other Similar Institutions: 712190
+- Beaches: doesn't exist :(
+- Public squares: doesn't exist (I think)
+- Restaurants: 7225%
+  - Full-Service Restaurants: 722511
+  - Limited-Service Restaurants: 722513
+  - Cafeterias, Grill Buffets, and Buffets: 722514
+  - Snack and Nonalcoholic Beverage Bars: 722515 *
+- Cafes & coffee shops: 722515 *
+- Grocery stores: 4451%
+  - Supermarkets and Other Grocery Retailers (except Convenience Retailers): 445110
+  - Convenience Retailers: 445131
+- Speciality food stores: 445{2,3}%
+  - Fruit and Vegetable Retailers: 445230
+  - Meat Retailers: 445240
+  - Fish and Seafood Retailers: 445250
+  - Baked Goods Retailers: 445291
+  - Confectionery and Nut Retailers: 445292
+  - All Other Specialty Food Retailers: 445298
+- Clothing stores + etc.: 45%
+- Bars: 722410
+- Hospitals + medical clinics: 62% **REMOVED BY ADVAN!!**
+- Public transportation (train stations + etc): 48%
+  - Line-Haul Railroads: 482111
+  - Air Transportation
+    - Scheduled Passenger Air Transportation: 481111
+    - Nonscheduled Chartered Passenger Air Transportation: 481211
+  - Transit and Ground Passenger Transportation: 485%
+    - Urban Transit Systems: 4851%
+      - Mixed Mode Transit Systems: 485111
+      - Commuter Rail Systems: 485112
+      - Bus and Other Motor Vehicle Transit Systems: 485113
+      - Other Urban Transit Systems: 485119
+      - Interurban and Rural Bus Transportation: 485210
+  - Taxi and Limousine Service: 4853%
+    - Taxi and Ridesharing Services: 485310
+    - Limousine Service: 485320
+  - School and Employee Bus Transportation: 485410
+  - Charter Bus Industry: 485510
+  - Special Needs Transportation: 485991
+  - All Other Transit and Ground Passenger Transportation: 485999
+- Religion: 8131% **REMOVED BY ADVAN!!**
