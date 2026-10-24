@@ -29,9 +29,8 @@ Tag højde for RUCA?
 
 - [Climate Change 2023: Synthesis Report](https://www.ipcc.ch/report/ar6/syr/downloads/report/IPCC_AR6_SYR_FullVolume.pdf)
 - [The 2023 report of the Lancet Countdown on health and climate change: the imperative for a health-centred response in a world facing irreversible harms](https://pubmed.ncbi.nlm.nih.gov/37977174/)
-- [Adaptation to Climate Change in the Context of Sustainable Development and Equity](https://www.ipcc.ch/site/assets/uploads/2018/03/wg2TARchap18.pdf)
 - [Climate change impact on flood and extreme precipitation increases with water availability](https://www.nature.com/articles/s41598-020-70816-2)
-- [Assessing the potential impact of climate change on the UK’s electricity network](https://link.springer.com/article/10.1007/s10584-012-0469-6)
+- [Temperature and growth: A panel analysis of the United States](https://onlinelibrary.wiley.com/doi/10.1111/jmcb.12574)
 
 #### Heat and consequences of heat
 
@@ -46,6 +45,17 @@ Tag højde for RUCA?
 - [Heatwave and mortality in 31 major Chinese cities: Definition, vulnerability and implications](https://www.sciencedirect.com/science/article/abs/pii/S0048969718333035)
 - [Exploring vulnerability to heat and cold across urban and rural populations in Switzerland](https://pubmed.ncbi.nlm.nih.gov/36969952/)
 
+#### Climate and infrastructure
+
+- [Assessing the potential impact of climate change on the UK’s electricity network](https://link.springer.com/article/10.1007/s10584-012-0469-6)
+- [A global multi-hazard risk analysis of road and railway infrastructure assets](https://www.nature.com/articles/s41467-019-10442-3)
+- [Coastal flood risk to European surface transport infrastructure at different global warming levels](https://www.nature.com/articles/s41558-025-02510-y)
+
+#### Climate and food
+
+- [Climate change impacts on global food security](https://pubmed.ncbi.nlm.nih.gov/23908229/)
+- [Anthropogenic climate change has slowed global agricultural productivity growth](https://www.nature.com/articles/s41558-021-01000-1)
+
 ## Data sources
 
 - Weekly Patterns Plus by Advan Research
@@ -56,8 +66,7 @@ Tag højde for RUCA?
   - [TIGER/Line with Selected Demographic and Economic Data](https://www.census.gov/geographies/mapping-files/time-series/geo/tiger-data.html)
 - [US State abbreviations and Fips codes](https://www.bls.gov/respondents/mwr/electronic-data-interchange/appendix-d-usps-state-abbreviations-and-fips-codes.htm) by U.S. Bureau of Labor Statistics
 - 5-year ACS median household income estimates by United States Census Bureau (from Dewey)
-
-* [MODIS Land Surface Temperature](https://www.earthdata.nasa.gov/data/catalog/lpcloud-mod11-l2-061) for temperature measurements in space and time
+- [MODIS Land Surface Temperature](https://www.earthdata.nasa.gov/data/catalog/lpcloud-mod11-l2-061) for temperature measurements in space and time
 
 ## Climate events
 
