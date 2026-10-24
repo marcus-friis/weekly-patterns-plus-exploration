@@ -27,18 +27,24 @@ Tag højde for RUCA?
 
 ### Climate background literature
 
-- [Emergency department visits, ambulance calls, and mortality associated with an exceptional heat wave in Sydney, Australia, 2011: a time-series analysis](https://link.springer.com/content/pdf/10.1186/1476-069X-11-3.pdf)
 - [Climate Change 2023: Synthesis Report](https://www.ipcc.ch/report/ar6/syr/downloads/report/IPCC_AR6_SYR_FullVolume.pdf)
+- [The 2023 report of the Lancet Countdown on health and climate change: the imperative for a health-centred response in a world facing irreversible harms](https://pubmed.ncbi.nlm.nih.gov/37977174/)
+- [Adaptation to Climate Change in the Context of Sustainable Development and Equity](https://www.ipcc.ch/site/assets/uploads/2018/03/wg2TARchap18.pdf)
+- [Climate change impact on flood and extreme precipitation increases with water availability](https://www.nature.com/articles/s41598-020-70816-2)
+- [Assessing the potential impact of climate change on the UK’s electricity network](https://link.springer.com/article/10.1007/s10584-012-0469-6)
 
 #### Heat and consequences of heat
 
 - [The burden of heat-related mortality attributable to recent human-induced climate change](https://pmc.ncbi.nlm.nih.gov/articles/PMC7611104/pdf/EMS127821.pdf)
+- [Emergency department visits, ambulance calls, and mortality associated with an exceptional heat wave in Sydney, Australia, 2011: a time-series analysis](https://link.springer.com/article/10.1186/1476-069X-11-3)
+- [Impact of the 2011 heat wave on mortality and emergency department visits in Houston, Texas](https://link.springer.com/content/pdf/10.1186/1476-069X-14-11.pdf)
 - [Heat-related urban mortality attributable to human-induced climate change in Europe from 2000 to 2025](https://www.nature.com/articles/s44360-026-00209-8)
 - [Increasing frequency, intensity and duration of observed global heatwaves and warm spells](https://agupubs.onlinelibrary.wiley.com/doi/full/10.1029/2012GL053361)
 - [Systematic attribution of heatwaves to the emissions of carbon majors](https://www.nature.com/articles/s41586-025-09450-9)
 - [Hot weather and heat extremes: health risks](<https://www.thelancet.com/journals/lancet/article/PIIS0140-6736(21)01208-3/fulltext>)
 - [City-level impact of extreme temperatures and mortality in Latin America](https://www.nature.com/articles/s41591-022-01872-6)
 - [Heatwave and mortality in 31 major Chinese cities: Definition, vulnerability and implications](https://www.sciencedirect.com/science/article/abs/pii/S0048969718333035)
+- [Exploring vulnerability to heat and cold across urban and rural populations in Switzerland](https://pubmed.ncbi.nlm.nih.gov/36969952/)
 
 ## Data sources
 
