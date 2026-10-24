@@ -1,5 +1,7 @@
 # data
 data/*
+dewey-download.md
+
 # except
 !data/states.csv
 !data/qcew-county-msa-csa-crosswalk.xlsx
