@@ -24,6 +24,22 @@ Tag højde for RUCA?
 - [Human mobility networks reveal increased segregation in large cities](https://www.nature.com/articles/s41586-023-06757-3)
 - [Distorted insights from human mobility data](https://www.nature.com/articles/s42005-024-01909-x.pdf)
 - [Varying relationships between experienced income segregation and travel behaviour across neighbourhood social and urban contexts](https://www.nature.com/articles/s41467-025-66585-z)
+- [Weather Effects on the Patterns of People's Everyday Activities: A Study Using GPS Traces of Mobile Phone Users](https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0081153)
+- [Remote sensing and GPS mobility reveal heat’s impact on human activity across diverse climates](https://link.springer.com/article/10.1140/epjds/s13688-026-00652-3)
+- [Collective Response of Human Populations to Large-Scale Emergencies](https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0017680)
+- [US cities are defined by rings and pockets with limited socioeconomic mixing](https://www.nature.com/articles/s44284-025-00350-7.pdf)
+
+### Mobility background
+
+- [Understanding individual human mobility patterns](https://www.nature.com/articles/nature06958)
+- [The Scales of Human Mobility](https://arxiv.org/abs/2109.07381)
+- [Human mobility: Models and applications](https://www.sciencedirect.com/science/article/pii/S037015731830022X)
+- [The universal visitation law of human mobility](https://www.nature.com/articles/s41586-021-03480-9)
+- [Exploring Universal Patterns in Human Home-Work Commuting from Mobile Phone Data](https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0096180)
+- [Returners and explorers dichotomy in human mobility](https://www.nature.com/articles/ncomms9166)
+- [Future Directions in Human Mobility Science](https://arxiv.org/pdf/2408.00702)
+- [A Survey on Deep Learning for Human Mobility](https://arxiv.org/pdf/2012.02825)
+- [Urban Human Mobility: Data-Driven Modeling and Prediction](https://dl.acm.org/doi/pdf/10.1145/3331651.3331653)
 
 ### Climate background literature
 
@@ -31,6 +47,8 @@ Tag højde for RUCA?
 - [The 2023 report of the Lancet Countdown on health and climate change: the imperative for a health-centred response in a world facing irreversible harms](https://pubmed.ncbi.nlm.nih.gov/37977174/)
 - [Climate change impact on flood and extreme precipitation increases with water availability](https://www.nature.com/articles/s41598-020-70816-2)
 - [Temperature and growth: A panel analysis of the United States](https://onlinelibrary.wiley.com/doi/10.1111/jmcb.12574)
+- [Increasing frequency, intensity and duration of observed global heatwaves and warm spells](https://agupubs.onlinelibrary.wiley.com/doi/full/10.1029/2012GL053361)
+- [Systematic attribution of heatwaves to the emissions of carbon majors](https://www.nature.com/articles/s41586-025-09450-9)
 
 #### Heat and consequences of heat
 
@@ -38,12 +56,13 @@ Tag højde for RUCA?
 - [Emergency department visits, ambulance calls, and mortality associated with an exceptional heat wave in Sydney, Australia, 2011: a time-series analysis](https://link.springer.com/article/10.1186/1476-069X-11-3)
 - [Impact of the 2011 heat wave on mortality and emergency department visits in Houston, Texas](https://link.springer.com/content/pdf/10.1186/1476-069X-14-11.pdf)
 - [Heat-related urban mortality attributable to human-induced climate change in Europe from 2000 to 2025](https://www.nature.com/articles/s44360-026-00209-8)
-- [Increasing frequency, intensity and duration of observed global heatwaves and warm spells](https://agupubs.onlinelibrary.wiley.com/doi/full/10.1029/2012GL053361)
-- [Systematic attribution of heatwaves to the emissions of carbon majors](https://www.nature.com/articles/s41586-025-09450-9)
 - [Hot weather and heat extremes: health risks](<https://www.thelancet.com/journals/lancet/article/PIIS0140-6736(21)01208-3/fulltext>)
 - [City-level impact of extreme temperatures and mortality in Latin America](https://www.nature.com/articles/s41591-022-01872-6)
 - [Heatwave and mortality in 31 major Chinese cities: Definition, vulnerability and implications](https://www.sciencedirect.com/science/article/abs/pii/S0048969718333035)
 - [Exploring vulnerability to heat and cold across urban and rural populations in Switzerland](https://pubmed.ncbi.nlm.nih.gov/36969952/)
+- [Impacts of extreme heat on mental health: Systematic review and qualitative investigation of the underpinning mechanisms](https://www.sciencedirect.com/science/article/pii/S266727822500029X)
+- [Associations between high ambient temperatures and heat waves with mental health outcomes: a systematic review](https://www.researchgate.net/profile/Rachael-Hornigold/publication/326375621_Associations_between_high_ambient_temperatures_and_heat_waves_with_mental_health_outcomes_a_systematic_review/links/5b607a5b458515c4b256b226/Associations-between-high-ambient-temperatures-and-heat-waves-with-mental-health-outcomes-a-systematic-review.pdf)
+- [The Effect of Heat Waves on Mental Health in a Temperate Australian City](https://pmc.ncbi.nlm.nih.gov/articles/PMC2569097/pdf/ehp-116-1369.pdf)
 
 #### Climate and infrastructure
 
