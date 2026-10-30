@@ -28,6 +28,7 @@ Tag højde for RUCA?
 - [Remote sensing and GPS mobility reveal heat’s impact on human activity across diverse climates](https://link.springer.com/article/10.1140/epjds/s13688-026-00652-3)
 - [Collective Response of Human Populations to Large-Scale Emergencies](https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0017680)
 - [US cities are defined by rings and pockets with limited socioeconomic mixing](https://www.nature.com/articles/s44284-025-00350-7.pdf)
+- [Realizing the Full Potential of Behavioural Science for Climate Change Mitigation](https://research-api.cbs.dk/ws/portalfiles/portal/102286692/kristian_s_nielsen_et_al_realizing_the_full_potential_acceptedversion.pdf)
 
 ### Mobility background
 
