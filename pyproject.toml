@@ -20,6 +20,7 @@ dependencies = [
     "orjson>=3.12.0",
     "polars>=2.0.0",
     "pyarrow>=25.0.1",
+    "pyfixest>=0.60.0",
     "scipy>=1.18.1",
     "seaborn>=0.13.2",
     "statsmodels>=0.15.0",
@@ -42,3 +43,6 @@ dev = [
     "ipykernel>=7.3.0",
     "jupyter>=1.1.1",
 ]
+
+[tool.basedpyright]
+typeCheckingMode = "standard"
