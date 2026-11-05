@@ -2,9 +2,12 @@ import contextily as cx
 import matplotlib.pyplot as plt
 import numpy as np
 import polars as pl
+import pyfixest as pf
 import seaborn as sns
 from adjustText import adjust_text
+from matplotlib.figure import Figure
 from matplotlib.lines import Line2D
+from pyproj import Transformer
 from scipy.stats import spearmanr
 from statsmodels.stats.multitest import multipletests
 
@@ -41,7 +44,7 @@ PALETTE = {
 }
 
 
-def plot_categories(categories: pl.DataFrame) -> plt.Figure:
+def plot_categories(categories: pl.DataFrame) -> Figure:
     categories = categories.with_columns(
         pl.col("CATEGORY").replace_strict(PALETTE, default="#4C78A8").alias("COLOR"),
         pl.col("CATEGORY").str.replace_all("_", " ").alias("CATEGORY_LABEL"),
@@ -167,39 +170,99 @@ def plot_categories(categories: pl.DataFrame) -> plt.Figure:
     return fig
 
 
-def plot_poi_map(pois: pl.DataFrame) -> plt.Figure:
-    fig, axes = plt.subplots(1, 3, figsize=(18, 5), sharex=True, sharey=True)
+def plot_poi_map(pois: pl.DataFrame) -> Figure:
+    from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 
-    for i, ((label,), g) in enumerate(
-        pois.sort("NUM_CATEGORY_POIS", descending=True).group_by(
-            "TOP_CATEGORY_K", maintain_order=True
-        )
-    ):
-        axes[0].scatter(
-            g["LONGITUDE"], g["LATITUDE"], s=0.1, alpha=0.05, label=label, zorder=10 - i
-        )
-    axes[0].legend()
-
-    axes[1].hexbin(
-        pois["LONGITUDE"], pois["LATITUDE"], mincnt=5, bins="log", gridsize=(50, 30)
+    fig, axes = plt.subplots(
+        1,
+        2,
+        figsize=(12, 6),
+        constrained_layout=True,
     )
-    axes[2].hexbin(
-        pois["LONGITUDE"],
-        pois["LATITUDE"],
-        pois["SEGREGATION"],
+
+    # ------------------------------------------------------------------
+    # Project WGS84 -> Web Mercator
+    # ------------------------------------------------------------------
+
+    transformer = Transformer.from_crs(
+        "EPSG:4326",
+        "EPSG:3857",
+        always_xy=True,
+    )
+
+    x, y = transformer.transform(
+        pois["LONGITUDE"].to_numpy(),
+        pois["LATITUDE"].to_numpy(),
+    )
+
+    hb_density = axes[0].hexbin(
+        x,
+        y,
+        gridsize=80,
         mincnt=5,
-        bins=10,
-        gridsize=(50, 30),
+        bins="log",
+        cmap="viridis",
     )
+
+    axes[0].set_title(f"POI density (n={len(pois):,})")
+
+    cax = inset_axes(
+        axes[0],
+        width="40%",
+        height="3%",
+        loc="lower right",
+        borderpad=1,
+    )
+
+    cbar = fig.colorbar(
+        hb_density,
+        cax=cax,
+        orientation="horizontal",
+    )
+
+    cbar.set_label("Log POI count", fontsize=8)
+    cbar.ax.tick_params(labelsize=7)
+
+    hb_seg = axes[1].hexbin(
+        x,
+        y,
+        C=pois["SEGREGATION"].to_numpy(),
+        reduce_C_function=np.mean,
+        gridsize=80,
+        mincnt=5,
+        cmap="coolwarm",
+        vmin=0,
+        vmax=1,
+    )
+
+    axes[1].set_title("Mean segregation")
+
+    cax = inset_axes(
+        axes[1],
+        width="40%",
+        height="3%",
+        loc="lower right",
+        borderpad=1,
+    )
+
+    cbar = fig.colorbar(
+        hb_seg,
+        cax=cax,
+        orientation="horizontal",
+    )
+
+    cbar.set_label("Segregation", fontsize=8)
+    cbar.ax.tick_params(labelsize=7)
 
     for ax in axes:
-        cx.add_basemap(ax, zoom="auto", crs="EPSG:4326")
+        cx.add_basemap(ax)
+
         ax.set_axis_off()
-    fig.tight_layout()
+
     return fig
 
 
-def plot_relationships(pois: pl.DataFrame) -> plt.Figure:
+def plot_relationships(pois: pl.DataFrame) -> Figure:
     fig, axes = plt.subplots(1, 2, sharey=True, figsize=(8, 4))
     sns.histplot(
         pois.to_pandas(),
@@ -220,7 +283,7 @@ def plot_relationships(pois: pl.DataFrame) -> plt.Figure:
     return fig
 
 
-def plot_category_counts(categories: pl.DataFrame) -> plt.Figure:
+def plot_category_counts(categories: pl.DataFrame) -> Figure:
     fig, axes = plt.subplots(1, 2, figsize=(12, 8))
 
     categories = categories.with_columns(
@@ -267,7 +330,7 @@ def plot_category_counts(categories: pl.DataFrame) -> plt.Figure:
     return fig
 
 
-def plot_poi_metrics_ccdf(pois: pl.DataFrame) -> plt.Figure:
+def plot_poi_metrics_ccdf(pois: pl.DataFrame) -> Figure:
     fig, axes = plt.subplots(2, 2, figsize=(12, 10))
 
     visitors = (
@@ -277,7 +340,8 @@ def plot_poi_metrics_ccdf(pois: pl.DataFrame) -> plt.Figure:
     )
 
     vals = np.sort(visitors)
-    ccdf = 1.0 - np.arange(1, len(vals) + 1) / len(vals)
+    vals = vals[np.isfinite(vals) & (vals > 0)]
+    ccdf = (len(vals) - np.arange(len(vals))) / len(vals)
 
     axes[0, 0].plot(vals, ccdf, ".", alpha=0.7)
     axes[0, 0].set_title("Visitor Counts (All POIs)")
@@ -351,7 +415,7 @@ def plot_poi_metrics_ccdf(pois: pl.DataFrame) -> plt.Figure:
     return fig
 
 
-def plot_categories_weekly_linechart(categories_weekly: pl.DataFrame) -> plt.Figure:
+def plot_categories_weekly_linechart(categories_weekly: pl.DataFrame) -> Figure:
     fig, axes = plt.subplots(2, 2, sharex=True, figsize=(12, 8))
     sns.lineplot(
         categories_weekly.to_pandas(),
@@ -405,7 +469,7 @@ def plot_categories_weekly_linechart(categories_weekly: pl.DataFrame) -> plt.Fig
     return fig
 
 
-def plot_categories_weekly_scatter(categories_weekly: pl.DataFrame) -> plt.Figure:
+def plot_categories_weekly_scatter(categories_weekly: pl.DataFrame) -> Figure:
     fig, ax = plt.subplots(figsize=(10, 10))
     sns.scatterplot(
         categories_weekly.to_pandas(),
@@ -512,7 +576,7 @@ def plot_poi_temperature_correlations(
     *,
     categories: list[str] | None = None,
     bins: int = 30,
-) -> plt.Figure:
+) -> Figure:
     if correlations.is_empty():
         raise ValueError("No valid POI-level correlations to plot.")
 
@@ -637,18 +701,25 @@ def plot_poi_temperature_correlations(
     return fig
 
 
+def plot_tmax_seg_scatter(pois_weekly: pl.DataFrame) -> Figure:
+    fig, ax = plt.subplots()
+    sns.histplot(pois_weekly.to_pandas(), x="AVG_TMAX", y="SEGREGATION", ax=ax)
+    sns.despine()
+    return fig
+
+
 if __name__ == "__main__":
     # load and prepare data
     con = db.connect(DB_PATH, read_only=True)
 
     pois_dim = cache.cached_parquet(
-        "pois_ny",
-        lambda: data.NY.load_pois(con),
+        "pois",
+        lambda: data.load_pois(con),
     )
 
     poi_visits = cache.cached_parquet(
-        "static_poi_segregation_ny",
-        lambda: data.NY.load_static_poi_segregation(con),
+        "static_poi_segregation",
+        lambda: data.load_static_poi_segregation(con),
     )
     pois = pois_dim.join(poi_visits, on="ID_STORE")
 
@@ -668,8 +739,8 @@ if __name__ == "__main__":
     )
 
     poi_visits_weekly = cache.cached_parquet(
-        "weekly_poi_segregation_ny",
-        lambda: data.NY.load_weekly_poi_segregation(con),
+        "weekly_poi_segregation",
+        lambda: data.load_weekly_poi_segregation(con),
     )
     pois_weekly = pois_dim.join(poi_visits_weekly, on="ID_STORE")
 
@@ -690,79 +761,247 @@ if __name__ == "__main__":
     )
 
     # Static segregation
-    print("Individual pois")
-    print(
-        "TOTAL_VISITORS ~ SEGREGATION",
-        pois.select(pl.corr("TOTAL_VISITORS", "SEGREGATION", method="spearman"))[0, 0],
+    # print("Individual pois")
+    # print(
+    #     "TOTAL_VISITORS ~ SEGREGATION",
+    #     pois.select(pl.corr("TOTAL_VISITORS", "SEGREGATION", method="spearman"))[0, 0],
+    # )
+    # print(
+    #     "AVG_DIST ~ SEGREGATION",
+    #     pois.select(pl.corr("AVG_DIST", "SEGREGATION", method="spearman"))[0, 0],
+    # )
+    # print()
+    # print("Aggregated categories")
+    # print(
+    #     "TOTAL_VISITORS ~ SEGREGATION",
+    #     categories.select(pl.corr("TOTAL_VISITORS", "SEGREGATION", method="spearman"))[
+    #         0, 0
+    #     ],
+    # )
+    # print(
+    #     "AVG_DIST ~ SEGREGATION",
+    #     categories.select(pl.corr("AVG_DIST", "SEGREGATION", method="spearman"))[0, 0],
+    # )
+    #
+    # fig = plot_categories(categories)
+    # figure_path = ROOT / "figures" / "category_segregation.png"
+    # figure_path.parent.mkdir(parents=True, exist_ok=True)
+    # fig.savefig(figure_path, dpi=400, bbox_inches="tight")
+    #
+    # fig = plot_poi_map(pois)
+    # figure_path = ROOT / "figures" / "poi_map.png"
+    # fig.savefig(figure_path, dpi=400, bbox_inches="tight")
+    #
+    # fig = plot_relationships(pois)
+    # figure_path = ROOT / "figures" / "poi_relationships.png"
+    # fig.savefig(figure_path, dpi=200, bbox_inches="tight")
+    #
+    # fig = plot_category_counts(categories)
+    # figure_path = ROOT / "figures" / "category_counts.png"
+    # fig.savefig(figure_path, dpi=200, bbox_inches="tight")
+    #
+    # fig = plot_poi_metrics_ccdf(pois)
+    # figure_path = ROOT / "figures" / "poi_metrics_ccdf.png"
+    # fig.savefig(figure_path, dpi=200, bbox_inches="tight")
+    #
+    # # Weekly segregation
+    # rows = []
+    # for cat in categories_weekly["CATEGORY"].unique():
+    #     X = categories_weekly.filter(pl.col("CATEGORY") == cat)
+    #     corr = spearmanr(X["AVG_TMAX"], X["SEGREGATION"])
+    #     rows.append(
+    #         {
+    #             "CATEGORY": cat,
+    #             "statistic": corr.statistic,  # pyright: ignore[reportAttributeAccessIssue]
+    #             "pvalue": corr.pvalue,  # pyright: ignore[reportAttributeAccessIssue]
+    #         }
+    #     )
+    # corrs = pl.DataFrame(rows)
+    # print(corrs)
+    #
+    # poi_correlations = compute_poi_temperature_correlations(
+    #     pois_weekly,
+    #     min_observations=10,
+    # )
+    #
+    # print(
+    #     poi_correlations.group_by("CATEGORY")
+    #     .agg(
+    #         pl.len().alias("NUM_POIS"),
+    #         pl.col("N").median().alias("MEDIAN_WEEKS"),
+    #         pl.col("RHO").median().alias("MEDIAN_RHO"),
+    #         pl.col("RHO").mean().alias("MEAN_RHO"),
+    #         pl.col("SIGNIFICANT").mean().alias("SHARE_FDR_SIGNIFICANT"),
+    #     )
+    #     .sort("MEDIAN_RHO")
+    # )
+    #
+    # fig = plot_poi_temperature_correlations(poi_correlations)
+    # figure_path = ROOT / "figures" / "poi_temperature_correlations.png"
+    # figure_path.parent.mkdir(parents=True, exist_ok=True)
+    #
+    # fig.savefig(
+    #     figure_path,
+    #     dpi=300,
+    #     bbox_inches="tight",
+    # )
+    #
+    # fig = plot_categories_weekly_linechart(categories_weekly)
+    # figure_path = ROOT / "figures" / "categories_weekly.png"
+    # fig.savefig(figure_path, dpi=200, bbox_inches="tight")
+    #
+    # fig = plot_categories_weekly_scatter(categories_weekly)
+    # figure_path = ROOT / "figures" / "categories_weekly_scatter.png"
+    # fig.savefig(figure_path, dpi=200, bbox_inches="tight")
+    #
+    # fig = plot_tmax_seg_scatter(pois_weekly)
+    # figure_path = ROOT / "figures" / "tmax_seg_scatter.png"
+    # fig.savefig(figure_path, dpi=200, bbox_inches="tight")
+
+    # Segregation modeling
+
+    pdf = (
+        pois_weekly.select(
+            "ID_STORE",
+            "SEGREGATION",
+            "AVG_DIST",
+            "AVG_TMAX",
+            "DATE_RANGE_START",
+            "CELL_ID",
+        )
+        .filter(
+            pl.col("ID_STORE").is_not_null(),
+            pl.col("SEGREGATION").is_not_null(),
+            pl.col("DATE_RANGE_START").is_not_null(),
+            pl.col("AVG_DIST").is_finite(),
+            pl.col("AVG_TMAX").is_finite(),
+        )
+        .with_columns(
+            (pl.col("AVG_TMAX") / 2).floor().mul(2).cast(pl.Int32).alias("TMAX_BIN")
+        )
+        .to_pandas()
     )
-    print(
-        "AVG_DIST ~ SEGREGATION",
-        pois.select(pl.corr("AVG_DIST", "SEGREGATION", method="spearman"))[0, 0],
-    )
-    print()
-    print("Aggregated categories")
-    print(
-        "TOTAL_VISITORS ~ SEGREGATION",
-        categories.select(pl.corr("TOTAL_VISITORS", "SEGREGATION", method="spearman"))[
-            0, 0
-        ],
-    )
-    print(
-        "AVG_DIST ~ SEGREGATION",
-        categories.select(pl.corr("AVG_DIST", "SEGREGATION", method="spearman"))[0, 0],
+    reference_bin = int(pdf["TMAX_BIN"].value_counts().idxmax())
+    print(f"Reference: {reference_bin} to {reference_bin + 2} degrees")
+
+    print(f"Fitting model on {len(pdf):,} observations...", flush=True)
+
+    model = pf.feols(
+        f"SEGREGATION ~ i(TMAX_BIN, ref={reference_bin}) | ID_STORE + DATE_RANGE_START",
+        data=pdf,
+        vcov={"CRV1": "ID_STORE + CELL_ID"},
     )
 
-    fig = plot_categories(categories)
-    figure_path = ROOT / "figures" / "category_segregation.png"
-    figure_path.parent.mkdir(parents=True, exist_ok=True)
-    fig.savefig(figure_path, dpi=400, bbox_inches="tight")
+    model.summary()
 
-    fig = plot_relationships(pois)
-    figure_path = ROOT / "figures" / "poi_relationships.png"
-    fig.savefig(figure_path, dpi=200, bbox_inches="tight")
+    coef = model.coef()
+    se = model.se()
 
-    fig = plot_category_counts(categories)
-    figure_path = ROOT / "figures" / "category_counts.png"
-    fig.savefig(figure_path, dpi=200, bbox_inches="tight")
-
-    fig = plot_poi_metrics_ccdf(pois)
-    figure_path = ROOT / "figures" / "poi_metrics_ccdf.png"
-    fig.savefig(figure_path, dpi=200, bbox_inches="tight")
-
-    # Weekly segregation
-    rows = []
-    for cat in categories_weekly["CATEGORY"].unique():
-        X = categories_weekly.filter(pl.col("CATEGORY") == cat)
-        corr = spearmanr(X["AVG_TMAX"], X["SEGREGATION"])
-        rows.append(
+    effects = (
+        pl.DataFrame(
             {
-                "CATEGORY": cat,
-                "statistic": corr.statistic,
-                "pvalue": corr.pvalue,
+                "TERM": coef.index.tolist(),
+                "ESTIMATE": coef.to_numpy(),
+                "SE": se.to_numpy(),
             }
         )
-    corrs = pl.DataFrame(rows)
-    print(corrs)
-
-    poi_correlations = compute_poi_temperature_correlations(
-        pois_weekly,
-        min_observations=10,
-    )
-
-    print(
-        poi_correlations.group_by("CATEGORY")
-        .agg(
-            pl.len().alias("NUM_POIS"),
-            pl.col("N").median().alias("MEDIAN_WEEKS"),
-            pl.col("RHO").median().alias("MEDIAN_RHO"),
-            pl.col("RHO").mean().alias("MEAN_RHO"),
-            pl.col("SIGNIFICANT").mean().alias("SHARE_FDR_SIGNIFICANT"),
+        .with_columns(
+            pl.col("TERM")
+            .str.extract(r"TMAX_BIN::(-?\d+)", 1)
+            .cast(pl.Int32)
+            .alias("TMAX_BIN")
         )
-        .sort("MEDIAN_RHO")
+        .drop_nulls("TMAX_BIN")
+        .with_columns(
+            (pl.col("ESTIMATE") - 1.96 * pl.col("SE")).alias("CI_LOW"),
+            (pl.col("ESTIMATE") + 1.96 * pl.col("SE")).alias("CI_HIGH"),
+        )
     )
 
-    fig = plot_poi_temperature_correlations(poi_correlations)
-    figure_path = ROOT / "figures" / "poi_temperature_correlations.png"
+    reference_effect = pl.DataFrame(
+        {
+            "TERM": [f"TMAX_BIN::{reference_bin}"],
+            "ESTIMATE": [0.0],
+            "SE": [0.0],
+            "TMAX_BIN": [reference_bin],
+            "CI_LOW": [0.0],
+            "CI_HIGH": [0.0],
+        },
+        schema={
+            "TERM": pl.String,
+            "ESTIMATE": pl.Float64,
+            "SE": pl.Float64,
+            "TMAX_BIN": pl.Int32,
+            "CI_LOW": pl.Float64,
+            "CI_HIGH": pl.Float64,
+        },
+    )
+
+    effects = (
+        pl.concat(
+            [effects, reference_effect],
+            how="vertical",
+        )
+        .sort("TMAX_BIN")
+        .with_columns((pl.col("TMAX_BIN") + 1).alias("BIN_MIDPOINT"))
+    )
+
+    effects_pdf = effects.to_pandas()
+
+    fig, ax = plt.subplots(figsize=(9, 5))
+
+    ax.errorbar(
+        effects_pdf["BIN_MIDPOINT"],
+        effects_pdf["ESTIMATE"],
+        yerr=[
+            effects_pdf["ESTIMATE"] - effects_pdf["CI_LOW"],
+            effects_pdf["CI_HIGH"] - effects_pdf["ESTIMATE"],
+        ],
+        fmt="o-",
+        color="#0072B2",
+        markerfacecolor="white",
+        markeredgecolor="#0072B2",
+        markersize=5,
+        linewidth=1.25,
+        elinewidth=0.8,
+        capsize=3,
+        label="Estimate and 95% CI",
+    )
+
+    ax.axhline(
+        0,
+        color="black",
+        linewidth=0.8,
+        linestyle="--",
+    )
+
+    ax.axvspan(
+        reference_bin,
+        reference_bin + 2,
+        color="0.85",
+        alpha=0.7,
+        label=f"Reference: {reference_bin}–{reference_bin + 2}°",
+    )
+
+    ax.set(
+        xlabel="Average maximum temperature, 2° bin midpoint",
+        ylabel="Difference in average travel distance (m)",
+        title="Temperature and average visitor travel distance",
+    )
+
+    ax.set_xticks(effects_pdf["BIN_MIDPOINT"])
+    ax.tick_params(axis="x", rotation=45)
+    ax.grid(axis="y", alpha=0.15)
+
+    ax.legend(
+        frameon=False,
+        loc="best",
+    )
+
+    sns.despine(ax=ax)
+    fig.tight_layout()
+
+    figure_path = ROOT / "figures" / "temperature_distance_binned.png"
     figure_path.parent.mkdir(parents=True, exist_ok=True)
 
     fig.savefig(
@@ -771,10 +1010,160 @@ if __name__ == "__main__":
         bbox_inches="tight",
     )
 
-    fig = plot_categories_weekly_linechart(categories_weekly)
-    figure_path = ROOT / "figures" / "categories_weekly.png"
-    fig.savefig(figure_path, dpi=200, bbox_inches="tight")
+    plt.close(fig)
 
-    fig = plot_categories_weekly_scatter(categories_weekly)
-    figure_path = ROOT / "figures" / "categories_weekly_scatter.png"
-    fig.savefig(figure_path, dpi=200, bbox_inches="tight")
+    for cat in categories["CATEGORY"].unique():
+        pdf = (
+            pois_weekly.select(
+                "ID_STORE",
+                "CATEGORY",
+                "SEGREGATION",
+                "AVG_DIST",
+                "AVG_TMAX",
+                "DATE_RANGE_START",
+                "CELL_ID",
+            )
+            .filter(pl.col("CATEGORY") == cat)
+            .filter(
+                pl.col("ID_STORE").is_not_null(),
+                pl.col("SEGREGATION").is_not_null(),
+                pl.col("DATE_RANGE_START").is_not_null(),
+                pl.col("AVG_DIST").is_finite(),
+                pl.col("AVG_TMAX").is_finite(),
+            )
+            .with_columns(
+                (pl.col("AVG_TMAX") / 2).floor().mul(2).cast(pl.Int32).alias("TMAX_BIN")
+            )
+            .to_pandas()
+        )
+        reference_bin = int(pdf["TMAX_BIN"].value_counts().idxmax())
+        print(f"Reference: {reference_bin} to {reference_bin + 2} degrees")
+
+        print(f"Fitting model on {len(pdf):,} observations...", flush=True)
+
+        model = pf.feols(
+            f"SEGREGATION ~ i(TMAX_BIN, ref={reference_bin}) | ID_STORE + DATE_RANGE_START",
+            data=pdf,
+            vcov={"CRV1": "ID_STORE + CELL_ID"},
+        )
+
+        print(cat)
+        model.summary()
+
+        coef = model.coef()
+        se = model.se()
+
+        effects = (
+            pl.DataFrame(
+                {
+                    "TERM": coef.index.tolist(),
+                    "ESTIMATE": coef.to_numpy(),
+                    "SE": se.to_numpy(),
+                }
+            )
+            .with_columns(
+                pl.col("TERM")
+                .str.extract(r"TMAX_BIN::(-?\d+)", 1)
+                .cast(pl.Int32)
+                .alias("TMAX_BIN")
+            )
+            .drop_nulls("TMAX_BIN")
+            .with_columns(
+                (pl.col("ESTIMATE") - 1.96 * pl.col("SE")).alias("CI_LOW"),
+                (pl.col("ESTIMATE") + 1.96 * pl.col("SE")).alias("CI_HIGH"),
+            )
+        )
+
+        reference_effect = pl.DataFrame(
+            {
+                "TERM": [f"TMAX_BIN::{reference_bin}"],
+                "ESTIMATE": [0.0],
+                "SE": [0.0],
+                "TMAX_BIN": [reference_bin],
+                "CI_LOW": [0.0],
+                "CI_HIGH": [0.0],
+            },
+            schema={
+                "TERM": pl.String,
+                "ESTIMATE": pl.Float64,
+                "SE": pl.Float64,
+                "TMAX_BIN": pl.Int32,
+                "CI_LOW": pl.Float64,
+                "CI_HIGH": pl.Float64,
+            },
+        )
+
+        effects = (
+            pl.concat(
+                [effects, reference_effect],
+                how="vertical",
+            )
+            .sort("TMAX_BIN")
+            .with_columns((pl.col("TMAX_BIN") + 1).alias("BIN_MIDPOINT"))
+        )
+
+        effects_pdf = effects.to_pandas()
+
+        fig, ax = plt.subplots(figsize=(9, 5))
+
+        ax.errorbar(
+            effects_pdf["BIN_MIDPOINT"],
+            effects_pdf["ESTIMATE"],
+            yerr=[
+                effects_pdf["ESTIMATE"] - effects_pdf["CI_LOW"],
+                effects_pdf["CI_HIGH"] - effects_pdf["ESTIMATE"],
+            ],
+            fmt="o-",
+            color="#0072B2",
+            markerfacecolor="white",
+            markeredgecolor="#0072B2",
+            markersize=5,
+            linewidth=1.25,
+            elinewidth=0.8,
+            capsize=3,
+            label="Estimate and 95% CI",
+        )
+
+        ax.axhline(
+            0,
+            color="black",
+            linewidth=0.8,
+            linestyle="--",
+        )
+
+        ax.axvspan(
+            reference_bin,
+            reference_bin + 2,
+            color="0.85",
+            alpha=0.7,
+            label=f"Reference: {reference_bin}–{reference_bin + 2}°",
+        )
+
+        ax.set(
+            xlabel="Average maximum temperature, 2° bin midpoint",
+            ylabel="Difference in average travel distance (m)",
+            title="Temperature and average visitor travel distance",
+        )
+
+        ax.set_xticks(effects_pdf["BIN_MIDPOINT"])
+        ax.tick_params(axis="x", rotation=45)
+        ax.grid(axis="y", alpha=0.15)
+
+        ax.legend(
+            frameon=False,
+            loc="best",
+        )
+
+        sns.despine(ax=ax)
+        fig.tight_layout()
+
+        figure_path = ROOT / "figures" / f"temperature_distance_binned_{cat}.png"
+        figure_path.parent.mkdir(parents=True, exist_ok=True)
+
+        fig.savefig(
+            figure_path,
+            dpi=300,
+            bbox_inches="tight",
+        )
+
+        plt.close(fig)
