@@ -351,7 +351,7 @@ def plot_poi_metrics_ccdf(pois: pl.DataFrame) -> Figure:
         pl.col("TOTAL_VISITORS").sum()
     )
 
-    for category, df in visitor_cat.group_by("CATEGORY"):
+    for (category,), df in visitor_cat.group_by("CATEGORY"):
         vals = np.sort(df["TOTAL_VISITORS"].to_numpy())
 
         if len(vals) < 2:
@@ -363,7 +363,8 @@ def plot_poi_metrics_ccdf(pois: pl.DataFrame) -> Figure:
             vals,
             ccdf,
             alpha=0.7,
-            label=category[0] if isinstance(category, tuple) else category,
+            color=PALETTE.get(category, "#4C78A8"),
+            label=category.replace("_", " "),
         )
 
     axes[0, 1].set_title("Visitor Counts (By Category)")
@@ -381,7 +382,7 @@ def plot_poi_metrics_ccdf(pois: pl.DataFrame) -> Figure:
 
     dist_cat = pois.group_by(["CATEGORY", "ID_STORE"]).agg(pl.col("AVG_DIST").mean())
 
-    for category, df in dist_cat.group_by("CATEGORY"):
+    for (category,), df in dist_cat.group_by("CATEGORY"):
         vals = np.sort(df["AVG_DIST"].to_numpy())
 
         if len(vals) < 2:
@@ -393,7 +394,8 @@ def plot_poi_metrics_ccdf(pois: pl.DataFrame) -> Figure:
             vals,
             ccdf,
             alpha=0.7,
-            label=category[0] if isinstance(category, tuple) else category,
+            color=PALETTE.get(category, "#4C78A8"),
+            label=category.replace("_", " "),
         )
 
     axes[1, 1].set_title("Average Travel Distance (By Category)")
