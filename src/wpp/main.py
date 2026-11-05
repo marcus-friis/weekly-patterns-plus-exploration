@@ -1,11 +1,11 @@
 import matplotlib.pyplot as plt
+import numpy as np
 import polars as pl
 import seaborn as sns
 from adjustText import adjust_text
-from duckdb import DuckDBPyConnection
 from matplotlib.lines import Line2D
 
-from wpp import data, db
+from wpp import cache, data, db
 from wpp.utils import project_root
 
 ROOT = project_root()
@@ -232,6 +232,30 @@ def plot_category_counts(categories: pl.DataFrame) -> plt.Figure:
     return fig
 
 
+def plot_poi_visitor_ccdf(pois: pl.DataFrame) -> plt.Figure:
+    agg = pois.group_by("ID_STORE").agg(pl.col("TOTAL_VISITORS").sum())
+    series = agg["TOTAL_VISITORS"].to_numpy()
+
+    # Sort values ascending
+    sorted_vals = np.sort(series)
+    n = len(sorted_vals)
+
+    # CCDF: P(X > x) for each sorted value
+    # For the i-th smallest value (1-indexed), the fraction of points
+    # strictly greater than it is (n - i) / n
+    ccdf = 1.0 - (np.arange(1, n + 1) / n)
+
+    fig, ax = plt.subplots()
+    ax.plot(sorted_vals, ccdf, marker=".", linestyle="none")
+    ax.set_xscale("log")
+    ax.set_yscale("log")
+    ax.set_xlabel("Visitor counts")
+    ax.set_ylabel("P(X > x)")
+    ax.set_title("CCDF of POI Visitor Counts")
+
+    return fig
+
+
 def plot_categories_weekly_linechart(categories_weekly: pl.DataFrame) -> plt.Figure:
     fig, axes = plt.subplots(2, 2, sharex=True, figsize=(12, 8))
     sns.lineplot(
@@ -290,10 +314,17 @@ if __name__ == "__main__":
     # load data
     con = db.connect(DB_PATH, read_only=True)
 
-    pois_dim = data.load_pois(con)
+    pois_dim = cache.cached_parquet(
+        "pois_ny",
+        lambda: data.NY.load_pois(con),
+    )
 
     # Static segregation
-    poi_visits = data.load_static_poi_segregation(con)
+    poi_visits = cache.cached_parquet(
+        "static_poi_segregation_ny",
+        lambda: data.NY.load_static_poi_segregation(con),
+    )
+
     pois = pois_dim.join(poi_visits, on="ID_STORE")
     categories = pois.group_by("CATEGORY", "NAICS_TITLE").agg(
         pl.len().alias("NUM_POIS"),
@@ -313,12 +344,35 @@ if __name__ == "__main__":
     print("pois:", pois.head())
     print("categories:", categories.head())
 
+    print()
+    print("Individual pois")
+    print(
+        "TOTAL_VISITORS ~ SEGREGATION",
+        pois.select(pl.corr("TOTAL_VISITORS", "SEGREGATION", method="spearman"))[0, 0],
+    )
+    print(
+        "AVG_DIST ~ SEGREGATION",
+        pois.select(pl.corr("AVG_DIST", "SEGREGATION", method="spearman"))[0, 0],
+    )
+    print()
+    print("Aggregated categories")
+    print(
+        "TOTAL_VISITORS ~ SEGREGATION",
+        categories.select(pl.corr("TOTAL_VISITORS", "SEGREGATION", method="spearman"))[
+            0, 0
+        ],
+    )
+    print(
+        "AVG_DIST ~ SEGREGATION",
+        categories.select(pl.corr("AVG_DIST", "SEGREGATION", method="spearman"))[0, 0],
+    )
+
     fig = plot_categories(categories)
     figure_path = ROOT / "figures" / "category_segregation.png"
     figure_path.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(figure_path, dpi=400, bbox_inches="tight")
 
-    fig = plot_categories(categories)
+    fig = plot_relationships(categories)
     figure_path = ROOT / "figures" / "poi_relationships.png"
     fig.savefig(figure_path, dpi=200, bbox_inches="tight")
 
@@ -326,8 +380,15 @@ if __name__ == "__main__":
     figure_path = ROOT / "figures" / "category_counts.png"
     fig.savefig(figure_path, dpi=200, bbox_inches="tight")
 
+    fig = plot_poi_visitor_ccdf(pois)
+    figure_path = ROOT / "figures" / "poi_visitors_ccdf.png"
+    fig.savefig(figure_path, dpi=200, bbox_inches="tight")
+
     # Weekly segregation
-    poi_visits_weekly = data.load_weekly_poi_segregation(con)
+    poi_visits_weekly = cache.cached_parquet(
+        "weekly_poi_segregation_ny",
+        lambda: data.NY.load_weekly_poi_segregation(con),
+    )
     pois_weekly = pois_dim.join(poi_visits_weekly, on="ID_STORE")
     categories_weekly = pois_weekly.group_by("CATEGORY", "DATE_RANGE_START").agg(
         pl.len().alias("NUM_POIS"),
