@@ -1,9 +1,12 @@
+import contextily as cx
 import matplotlib.pyplot as plt
 import numpy as np
 import polars as pl
 import seaborn as sns
 from adjustText import adjust_text
 from matplotlib.lines import Line2D
+from scipy.stats import spearmanr
+from statsmodels.stats.multitest import multipletests
 
 from wpp import cache, data, db
 from wpp.utils import project_root
@@ -164,6 +167,38 @@ def plot_categories(categories: pl.DataFrame) -> plt.Figure:
     return fig
 
 
+def plot_poi_map(pois: pl.DataFrame) -> plt.Figure:
+    fig, axes = plt.subplots(1, 3, figsize=(18, 5), sharex=True, sharey=True)
+
+    for i, ((label,), g) in enumerate(
+        pois.sort("NUM_CATEGORY_POIS", descending=True).group_by(
+            "TOP_CATEGORY_K", maintain_order=True
+        )
+    ):
+        axes[0].scatter(
+            g["LONGITUDE"], g["LATITUDE"], s=0.1, alpha=0.05, label=label, zorder=10 - i
+        )
+    axes[0].legend()
+
+    axes[1].hexbin(
+        pois["LONGITUDE"], pois["LATITUDE"], mincnt=5, bins="log", gridsize=(50, 30)
+    )
+    axes[2].hexbin(
+        pois["LONGITUDE"],
+        pois["LATITUDE"],
+        pois["SEGREGATION"],
+        mincnt=5,
+        bins=10,
+        gridsize=(50, 30),
+    )
+
+    for ax in axes:
+        cx.add_basemap(ax, zoom="auto", crs="EPSG:4326")
+        ax.set_axis_off()
+    fig.tight_layout()
+    return fig
+
+
 def plot_relationships(pois: pl.DataFrame) -> plt.Figure:
     fig, axes = plt.subplots(1, 2, sharey=True, figsize=(8, 4))
     sns.histplot(
@@ -232,26 +267,86 @@ def plot_category_counts(categories: pl.DataFrame) -> plt.Figure:
     return fig
 
 
-def plot_poi_visitor_ccdf(pois: pl.DataFrame) -> plt.Figure:
-    agg = pois.group_by("ID_STORE").agg(pl.col("TOTAL_VISITORS").sum())
-    series = agg["TOTAL_VISITORS"].to_numpy()
+def plot_poi_metrics_ccdf(pois: pl.DataFrame) -> plt.Figure:
+    fig, axes = plt.subplots(2, 2, figsize=(12, 10))
 
-    # Sort values ascending
-    sorted_vals = np.sort(series)
-    n = len(sorted_vals)
+    visitors = (
+        pois.group_by("ID_STORE")
+        .agg(pl.col("TOTAL_VISITORS").sum())["TOTAL_VISITORS"]
+        .to_numpy()
+    )
 
-    # CCDF: P(X > x) for each sorted value
-    # For the i-th smallest value (1-indexed), the fraction of points
-    # strictly greater than it is (n - i) / n
-    ccdf = 1.0 - (np.arange(1, n + 1) / n)
+    vals = np.sort(visitors)
+    ccdf = 1.0 - np.arange(1, len(vals) + 1) / len(vals)
 
-    fig, ax = plt.subplots()
-    ax.plot(sorted_vals, ccdf, marker=".", linestyle="none")
-    ax.set_xscale("log")
-    ax.set_yscale("log")
-    ax.set_xlabel("Visitor counts")
-    ax.set_ylabel("P(X > x)")
-    ax.set_title("CCDF of POI Visitor Counts")
+    axes[0, 0].plot(vals, ccdf, ".", alpha=0.7)
+    axes[0, 0].set_title("Visitor Counts (All POIs)")
+
+    visitor_cat = pois.group_by(["CATEGORY", "ID_STORE"]).agg(
+        pl.col("TOTAL_VISITORS").sum()
+    )
+
+    for category, df in visitor_cat.group_by("CATEGORY"):
+        vals = np.sort(df["TOTAL_VISITORS"].to_numpy())
+
+        if len(vals) < 2:
+            continue
+
+        ccdf = 1.0 - np.arange(1, len(vals) + 1) / len(vals)
+
+        axes[0, 1].plot(
+            vals,
+            ccdf,
+            alpha=0.7,
+            label=category[0] if isinstance(category, tuple) else category,
+        )
+
+    axes[0, 1].set_title("Visitor Counts (By Category)")
+    axes[0, 1].legend(fontsize=8)
+
+    avg_dist = (
+        pois.group_by("ID_STORE").agg(pl.col("AVG_DIST").mean())["AVG_DIST"].to_numpy()
+    )
+
+    vals = np.sort(avg_dist)
+    ccdf = 1.0 - np.arange(1, len(vals) + 1) / len(vals)
+
+    axes[1, 0].plot(vals, ccdf, ".", alpha=0.7)
+    axes[1, 0].set_title("Average Travel Distance (All POIs)")
+
+    dist_cat = pois.group_by(["CATEGORY", "ID_STORE"]).agg(pl.col("AVG_DIST").mean())
+
+    for category, df in dist_cat.group_by("CATEGORY"):
+        vals = np.sort(df["AVG_DIST"].to_numpy())
+
+        if len(vals) < 2:
+            continue
+
+        ccdf = 1.0 - np.arange(1, len(vals) + 1) / len(vals)
+
+        axes[1, 1].plot(
+            vals,
+            ccdf,
+            alpha=0.7,
+            label=category[0] if isinstance(category, tuple) else category,
+        )
+
+    axes[1, 1].set_title("Average Travel Distance (By Category)")
+    axes[1, 1].legend(fontsize=8)
+
+    for ax in axes.flat:
+        ax.set(
+            xscale="log",
+            yscale="log",
+            ylabel="P(X > x)",
+        )
+
+    axes[0, 0].set_xlabel("Visitors")
+    axes[0, 1].set_xlabel("Visitors")
+    axes[1, 0].set_xlabel("Average distance (m)")
+    axes[1, 1].set_xlabel("Average distance (m)")
+
+    fig.tight_layout()
 
     return fig
 
@@ -310,8 +405,240 @@ def plot_categories_weekly_linechart(categories_weekly: pl.DataFrame) -> plt.Fig
     return fig
 
 
+def plot_categories_weekly_scatter(categories_weekly: pl.DataFrame) -> plt.Figure:
+    fig, ax = plt.subplots(figsize=(10, 10))
+    sns.scatterplot(
+        categories_weekly.to_pandas(),
+        x="AVG_DIST",
+        y="SEGREGATION",
+        hue="CATEGORY",
+        palette=PALETTE,
+        ax=ax,
+    )
+    return fig
+
+
+def compute_poi_temperature_correlations(
+    pois_weekly: pl.DataFrame,
+    *,
+    min_observations: int = 10,
+) -> pl.DataFrame:
+    rows = []
+
+    data = (
+        pois_weekly.select(
+            "CATEGORY",
+            "ID_STORE",
+            "AVG_TMAX",
+            "SEGREGATION",
+        )
+        .drop_nulls()
+        .filter(
+            pl.col("AVG_TMAX").is_finite(),
+            pl.col("SEGREGATION").is_finite(),
+        )
+        .sort("CATEGORY", "ID_STORE")
+    )
+
+    for (category, id_store), group in data.group_by(
+        "CATEGORY",
+        "ID_STORE",
+        maintain_order=True,
+    ):
+        n = group.height
+
+        if n < min_observations:
+            continue
+
+        temperature = group["AVG_TMAX"].to_numpy()
+        segregation = group["SEGREGATION"].to_numpy()
+
+        # Spearman correlation is undefined for constant series.
+        if np.unique(temperature).size < 2 or np.unique(segregation).size < 2:
+            continue
+
+        result = spearmanr(
+            temperature,
+            segregation,
+            nan_policy="omit",
+        )
+
+        if not np.isfinite(result.statistic):
+            continue
+
+        rows.append(
+            {
+                "CATEGORY": category,
+                "ID_STORE": id_store,
+                "N": n,
+                "RHO": float(result.statistic),
+                "PVALUE": float(result.pvalue),
+            }
+        )
+
+    correlations = pl.DataFrame(
+        rows,
+        schema={
+            "CATEGORY": pl.String,
+            "ID_STORE": pl.String,
+            "N": pl.Int64,
+            "RHO": pl.Float64,
+            "PVALUE": pl.Float64,
+        },
+    )
+
+    if correlations.is_empty():
+        return correlations.with_columns(
+            pl.lit(None, dtype=pl.Float64).alias("QVALUE"),
+            pl.lit(False).alias("SIGNIFICANT"),
+        )
+
+    # Control the false-discovery rate across all tested POIs.
+    _, qvalues, _, _ = multipletests(
+        correlations["PVALUE"].to_numpy(),
+        alpha=0.05,
+        method="fdr_bh",
+    )
+
+    return correlations.with_columns(
+        pl.Series("QVALUE", qvalues),
+    ).with_columns(
+        (pl.col("QVALUE") < 0.05).alias("SIGNIFICANT"),
+    )
+
+
+def plot_poi_temperature_correlations(
+    correlations: pl.DataFrame,
+    *,
+    categories: list[str] | None = None,
+    bins: int = 30,
+) -> plt.Figure:
+    if correlations.is_empty():
+        raise ValueError("No valid POI-level correlations to plot.")
+
+    if categories is None:
+        categories = (
+            correlations.group_by("CATEGORY")
+            .agg(pl.len().alias("NUM_POIS"))
+            .sort("NUM_POIS", descending=True)["CATEGORY"]
+            .to_list()
+        )
+
+    categories = [
+        category
+        for category in categories
+        if correlations.filter(pl.col("CATEGORY") == category).height > 0
+    ]
+
+    n_categories = len(categories)
+
+    fig, axes = plt.subplots(
+        n_categories,
+        2,
+        figsize=(11, max(2.0 * n_categories, 4)),
+        sharex="col",
+        squeeze=False,
+        constrained_layout=True,
+    )
+
+    rho_bins = np.linspace(-1, 1, bins + 1)
+    pvalue_bins = np.linspace(0, 1, bins + 1)
+
+    for row, category in enumerate(categories):
+        category_data = correlations.filter(pl.col("CATEGORY") == category)
+
+        rho = category_data["RHO"].to_numpy()
+        pvalues = category_data["PVALUE"].to_numpy()
+
+        median_rho = np.median(rho)
+        significant_share = category_data["SIGNIFICANT"].mean()
+
+        axes[row, 0].hist(
+            rho,
+            bins=rho_bins,
+            color=PALETTE.get(category, "#4C78A8"),
+            alpha=0.85,
+            edgecolor="white",
+            linewidth=0.4,
+        )
+
+        axes[row, 0].axvline(
+            0,
+            color="0.35",
+            linestyle=":",
+            linewidth=0.8,
+        )
+        axes[row, 0].axvline(
+            median_rho,
+            color="black",
+            linestyle="--",
+            linewidth=1,
+        )
+
+        axes[row, 1].hist(
+            pvalues,
+            bins=pvalue_bins,
+            color=PALETTE.get(category, "#4C78A8"),
+            alpha=0.85,
+            edgecolor="white",
+            linewidth=0.4,
+        )
+
+        axes[row, 1].axvline(
+            0.05,
+            color="#D55E00",
+            linestyle="--",
+            linewidth=1,
+        )
+
+        category_label = category.replace("_", " ")
+
+        axes[row, 0].set_ylabel(
+            f"{category_label}\n(n={len(rho):,})",
+            rotation=0,
+            ha="right",
+            va="center",
+        )
+
+        axes[row, 0].text(
+            0.98,
+            0.88,
+            rf"median $\rho$ = {median_rho:.2f}",
+            transform=axes[row, 0].transAxes,
+            ha="right",
+            va="top",
+            fontsize=8,
+        )
+
+        axes[row, 1].text(
+            0.98,
+            0.88,
+            f"FDR significant = {significant_share:.1%}",
+            transform=axes[row, 1].transAxes,
+            ha="right",
+            va="top",
+            fontsize=8,
+        )
+
+    axes[0, 0].set_title("POI-level Spearman correlations")
+    axes[0, 1].set_title("Raw p-value distributions")
+
+    axes[-1, 0].set_xlabel(r"Spearman $\rho$: temperature vs. segregation")
+    axes[-1, 1].set_xlabel("Raw p-value")
+
+    axes[-1, 0].set_xlim(-1, 1)
+    axes[-1, 1].set_xlim(0, 1)
+
+    for ax in axes.flat:
+        ax.grid(axis="y", alpha=0.15)
+
+    sns.despine(fig=fig)
+
+    return fig
+
+
 if __name__ == "__main__":
-    # load data
+    # load and prepare data
     con = db.connect(DB_PATH, read_only=True)
 
     pois_dim = cache.cached_parquet(
@@ -319,13 +646,12 @@ if __name__ == "__main__":
         lambda: data.NY.load_pois(con),
     )
 
-    # Static segregation
     poi_visits = cache.cached_parquet(
         "static_poi_segregation_ny",
         lambda: data.NY.load_static_poi_segregation(con),
     )
-
     pois = pois_dim.join(poi_visits, on="ID_STORE")
+
     categories = pois.group_by("CATEGORY", "NAICS_TITLE").agg(
         pl.len().alias("NUM_POIS"),
         pl.col("SEGREGATION").mean(),
@@ -341,10 +667,29 @@ if __name__ == "__main__":
         ).alias("AVG_DIST"),
     )
 
-    print("pois:", pois.head())
-    print("categories:", categories.head())
+    poi_visits_weekly = cache.cached_parquet(
+        "weekly_poi_segregation_ny",
+        lambda: data.NY.load_weekly_poi_segregation(con),
+    )
+    pois_weekly = pois_dim.join(poi_visits_weekly, on="ID_STORE")
 
-    print()
+    categories_weekly = pois_weekly.group_by("CATEGORY", "DATE_RANGE_START").agg(
+        pl.len().alias("NUM_POIS"),
+        pl.col("SEGREGATION").mean(),
+        (
+            (pl.col("SEGREGATION") * pl.col("TOTAL_VISITORS")).sum()
+            / pl.col("TOTAL_VISITORS").sum()
+        ).alias("W_SEGREGATION"),
+        pl.col("TOTAL_VISITORS").sum(),
+        pl.col("TOTAL_VISITORS").mean().alias("AVG_VISITORS"),
+        (
+            (pl.col("AVG_DIST") * pl.col("TOTAL_VISITORS")).sum()
+            / pl.col("TOTAL_VISITORS").sum()
+        ).alias("AVG_DIST"),
+        pl.col("AVG_TMAX").mean(),
+    )
+
+    # Static segregation
     print("Individual pois")
     print(
         "TOTAL_VISITORS ~ SEGREGATION",
@@ -372,7 +717,7 @@ if __name__ == "__main__":
     figure_path.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(figure_path, dpi=400, bbox_inches="tight")
 
-    fig = plot_relationships(categories)
+    fig = plot_relationships(pois)
     figure_path = ROOT / "figures" / "poi_relationships.png"
     fig.savefig(figure_path, dpi=200, bbox_inches="tight")
 
@@ -380,32 +725,56 @@ if __name__ == "__main__":
     figure_path = ROOT / "figures" / "category_counts.png"
     fig.savefig(figure_path, dpi=200, bbox_inches="tight")
 
-    fig = plot_poi_visitor_ccdf(pois)
-    figure_path = ROOT / "figures" / "poi_visitors_ccdf.png"
+    fig = plot_poi_metrics_ccdf(pois)
+    figure_path = ROOT / "figures" / "poi_metrics_ccdf.png"
     fig.savefig(figure_path, dpi=200, bbox_inches="tight")
 
     # Weekly segregation
-    poi_visits_weekly = cache.cached_parquet(
-        "weekly_poi_segregation_ny",
-        lambda: data.NY.load_weekly_poi_segregation(con),
+    rows = []
+    for cat in categories_weekly["CATEGORY"].unique():
+        X = categories_weekly.filter(pl.col("CATEGORY") == cat)
+        corr = spearmanr(X["AVG_TMAX"], X["SEGREGATION"])
+        rows.append(
+            {
+                "CATEGORY": cat,
+                "statistic": corr.statistic,
+                "pvalue": corr.pvalue,
+            }
+        )
+    corrs = pl.DataFrame(rows)
+    print(corrs)
+
+    poi_correlations = compute_poi_temperature_correlations(
+        pois_weekly,
+        min_observations=10,
     )
-    pois_weekly = pois_dim.join(poi_visits_weekly, on="ID_STORE")
-    categories_weekly = pois_weekly.group_by("CATEGORY", "DATE_RANGE_START").agg(
-        pl.len().alias("NUM_POIS"),
-        pl.col("SEGREGATION").mean(),
-        (
-            (pl.col("SEGREGATION") * pl.col("TOTAL_VISITORS")).sum()
-            / pl.col("TOTAL_VISITORS").sum()
-        ).alias("W_SEGREGATION"),
-        pl.col("TOTAL_VISITORS").sum(),
-        pl.col("TOTAL_VISITORS").mean().alias("AVG_VISITORS"),
-        (
-            (pl.col("AVG_DIST") * pl.col("TOTAL_VISITORS")).sum()
-            / pl.col("TOTAL_VISITORS").sum()
-        ).alias("AVG_DIST"),
-        pl.col("AVG_TMAX").mean(),
+
+    print(
+        poi_correlations.group_by("CATEGORY")
+        .agg(
+            pl.len().alias("NUM_POIS"),
+            pl.col("N").median().alias("MEDIAN_WEEKS"),
+            pl.col("RHO").median().alias("MEDIAN_RHO"),
+            pl.col("RHO").mean().alias("MEAN_RHO"),
+            pl.col("SIGNIFICANT").mean().alias("SHARE_FDR_SIGNIFICANT"),
+        )
+        .sort("MEDIAN_RHO")
+    )
+
+    fig = plot_poi_temperature_correlations(poi_correlations)
+    figure_path = ROOT / "figures" / "poi_temperature_correlations.png"
+    figure_path.parent.mkdir(parents=True, exist_ok=True)
+
+    fig.savefig(
+        figure_path,
+        dpi=300,
+        bbox_inches="tight",
     )
 
     fig = plot_categories_weekly_linechart(categories_weekly)
     figure_path = ROOT / "figures" / "categories_weekly.png"
+    fig.savefig(figure_path, dpi=200, bbox_inches="tight")
+
+    fig = plot_categories_weekly_scatter(categories_weekly)
+    figure_path = ROOT / "figures" / "categories_weekly_scatter.png"
     fig.savefig(figure_path, dpi=200, bbox_inches="tight")
