@@ -16,6 +16,7 @@ from wpp.utils import project_root
 
 ROOT = project_root()
 DATA_PATH = ROOT / "data"
+FIGURE_PATH = ROOT / "figures"
 DB_PATH = ROOT / "wpp.duckdb"
 
 sns.set_theme(style="ticks")
@@ -859,103 +860,231 @@ if __name__ == "__main__":
     # fig.savefig(figure_path, dpi=200, bbox_inches="tight")
 
     # Segregation modeling
+    BIN_WIDTH = 2.0
+    BIN_ORIGIN = 0.0
+    MIN_OBSERVATIONS = 100
 
-    pdf = (
-        pois_weekly.select(
+    OUTCOME = "SEGREGATION"
+
+    def prepare_data(
+        data: pl.DataFrame,
+        *,
+        bin_width: float,
+        bin_origin: float = 0.0,
+    ) -> pl.DataFrame:
+        """Prepare the shared estimation dataset and assign temperature bins."""
+        required = [
             "ID_STORE",
-            "SEGREGATION",
-            "AVG_DIST",
+            "CATEGORY",
+            OUTCOME,
             "AVG_TMAX",
             "DATE_RANGE_START",
             "CELL_ID",
+        ]
+
+        return (
+            data.select(required)
+            .filter(
+                pl.col("ID_STORE").is_not_null(),
+                pl.col("CATEGORY").is_not_null(),
+                pl.col(OUTCOME).is_finite(),
+                pl.col("AVG_TMAX").is_finite(),
+                pl.col("DATE_RANGE_START").is_not_null(),
+                pl.col("CELL_ID").is_not_null(),
+            )
+            .with_columns(
+                ((pl.col("AVG_TMAX") - bin_origin) / bin_width)
+                .floor()
+                .cast(pl.Int32)
+                .alias("TMAX_BIN_ID")
+            )
         )
-        .filter(
-            pl.col("ID_STORE").is_not_null(),
-            pl.col("SEGREGATION").is_not_null(),
-            pl.col("DATE_RANGE_START").is_not_null(),
-            pl.col("AVG_DIST").is_finite(),
-            pl.col("AVG_TMAX").is_finite(),
+
+    def bin_lower(
+        bin_id: int | pl.Expr,
+        *,
+        bin_width: float,
+        bin_origin: float,
+    ):
+        return bin_origin + bin_id * bin_width
+
+    def format_temperature(value: float) -> str:
+        return f"{value:g}"
+
+    def fit_temperature_model(
+        data: pl.DataFrame,
+        *,
+        reference_bin_id: int,
+        bin_width: float,
+        bin_origin: float,
+    ) -> tuple[pf.estimation.feols_, pl.DataFrame]:
+        """Fit the fixed-effects model and return plot-ready coefficients."""
+        pdf = data.to_pandas()
+
+        if reference_bin_id not in pdf["TMAX_BIN_ID"].unique():
+            raise ValueError(
+                f"Reference bin {reference_bin_id} is absent from the supplied data."
+            )
+
+        model = pf.feols(
+            f"{OUTCOME} ~ i(TMAX_BIN_ID, ref={reference_bin_id})"
+            " | ID_STORE + DATE_RANGE_START",
+            data=pdf,
+            vcov={"CRV1": "ID_STORE + CELL_ID"},
         )
-        .with_columns(
-            (pl.col("AVG_TMAX") / 2).floor().mul(2).cast(pl.Int32).alias("TMAX_BIN")
-        )
-        .to_pandas()
-    )
-    reference_bin = int(pdf["TMAX_BIN"].value_counts().idxmax())
-    print(f"Reference: {reference_bin} to {reference_bin + 2} degrees")
 
-    print(f"Fitting model on {len(pdf):,} observations...", flush=True)
-
-    model = pf.feols(
-        f"SEGREGATION ~ i(TMAX_BIN, ref={reference_bin}) | ID_STORE + DATE_RANGE_START",
-        data=pdf,
-        vcov={"CRV1": "ID_STORE + CELL_ID"},
-    )
-
-    model.summary()
-
-    coef = model.coef()
-    se = model.se()
-
-    effects = (
-        pl.DataFrame(
+        coefficients = pl.DataFrame(
             {
-                "TERM": coef.index.tolist(),
-                "ESTIMATE": coef.to_numpy(),
-                "SE": se.to_numpy(),
+                "TERM": model.coef().index.tolist(),
+                "ESTIMATE": model.coef().to_numpy(),
+                "SE": model.se().to_numpy(),
             }
         )
-        .with_columns(
-            pl.col("TERM")
-            .str.extract(r"TMAX_BIN::(-?\d+)", 1)
-            .cast(pl.Int32)
-            .alias("TMAX_BIN")
+
+        effects = (
+            coefficients.with_columns(
+                pl.col("TERM")
+                .str.extract(r"TMAX_BIN_ID::(-?\d+)", 1)
+                .cast(pl.Int32)
+                .alias("TMAX_BIN_ID")
+            )
+            .drop_nulls("TMAX_BIN_ID")
+            .with_columns(
+                (pl.col("ESTIMATE") - 1.96 * pl.col("SE")).alias("CI_LOW"),
+                (pl.col("ESTIMATE") + 1.96 * pl.col("SE")).alias("CI_HIGH"),
+            )
         )
-        .drop_nulls("TMAX_BIN")
-        .with_columns(
-            (pl.col("ESTIMATE") - 1.96 * pl.col("SE")).alias("CI_LOW"),
-            (pl.col("ESTIMATE") + 1.96 * pl.col("SE")).alias("CI_HIGH"),
+
+        reference_effect = pl.DataFrame(
+            {
+                "TERM": [f"TMAX_BIN_ID::{reference_bin_id}"],
+                "ESTIMATE": [0.0],
+                "SE": [0.0],
+                "TMAX_BIN_ID": [reference_bin_id],
+                "CI_LOW": [0.0],
+                "CI_HIGH": [0.0],
+            },
+            schema={
+                "TERM": pl.String,
+                "ESTIMATE": pl.Float64,
+                "SE": pl.Float64,
+                "TMAX_BIN_ID": pl.Int32,
+                "CI_LOW": pl.Float64,
+                "CI_HIGH": pl.Float64,
+            },
         )
+
+        effects = (
+            pl.concat([effects, reference_effect], how="vertical")
+            .unique("TMAX_BIN_ID")
+            .sort("TMAX_BIN_ID")
+            .with_columns(
+                (pl.lit(bin_origin) + pl.col("TMAX_BIN_ID") * bin_width).alias(
+                    "BIN_LOW"
+                )
+            )
+            .with_columns(
+                (pl.col("BIN_LOW") + bin_width).alias("BIN_HIGH"),
+                (pl.col("BIN_LOW") + bin_width / 2).alias("BIN_MIDPOINT"),
+            )
+        )
+
+        return model, effects
+
+    def add_reference_region(
+        ax: plt.Axes,
+        *,
+        reference_bin_id: int,
+        bin_width: float,
+        bin_origin: float,
+    ) -> None:
+        lower = bin_lower(
+            reference_bin_id,
+            bin_width=bin_width,
+            bin_origin=bin_origin,
+        )
+        upper = lower + bin_width
+
+        ax.axhline(0, color="black", linewidth=0.8, linestyle="--")
+        ax.axvspan(
+            lower,
+            upper,
+            color="0.85",
+            alpha=0.7,
+            label=(
+                f"Reference: {format_temperature(lower)}–{format_temperature(upper)}°"
+            ),
+        )
+
+    def finish_axis(
+        ax: plt.Axes,
+        *,
+        title: str,
+        bin_width: float,
+    ) -> None:
+        ax.set(
+            xlabel=f"Average maximum temperature, {bin_width:g}° bin midpoint",
+            ylabel="Difference in segregation",
+            title=title,
+        )
+        ax.grid(axis="y", alpha=0.15)
+        ax.legend(frameon=False, loc="best")
+        sns.despine(ax=ax)
+
+    data = prepare_data(
+        pois_weekly,
+        bin_width=BIN_WIDTH,
+        bin_origin=BIN_ORIGIN,
     )
 
-    reference_effect = pl.DataFrame(
-        {
-            "TERM": [f"TMAX_BIN::{reference_bin}"],
-            "ESTIMATE": [0.0],
-            "SE": [0.0],
-            "TMAX_BIN": [reference_bin],
-            "CI_LOW": [0.0],
-            "CI_HIGH": [0.0],
-        },
-        schema={
-            "TERM": pl.String,
-            "ESTIMATE": pl.Float64,
-            "SE": pl.Float64,
-            "TMAX_BIN": pl.Int32,
-            "CI_LOW": pl.Float64,
-            "CI_HIGH": pl.Float64,
-        },
+    FIGURE_PATH.mkdir(parents=True, exist_ok=True)
+
+    # Use one global reference bin so category coefficients are comparable.
+    reference_bin_id = int(
+        data.group_by("TMAX_BIN_ID")
+        .len()
+        .sort("len", descending=True)
+        .item(0, "TMAX_BIN_ID")
     )
 
-    effects = (
-        pl.concat(
-            [effects, reference_effect],
-            how="vertical",
-        )
-        .sort("TMAX_BIN")
-        .with_columns((pl.col("TMAX_BIN") + 1).alias("BIN_MIDPOINT"))
+    reference_low = bin_lower(
+        reference_bin_id,
+        bin_width=BIN_WIDTH,
+        bin_origin=BIN_ORIGIN,
+    )
+    reference_high = reference_low + BIN_WIDTH
+
+    print(
+        f"Shared reference interval: "
+        f"{format_temperature(reference_low)}–"
+        f"{format_temperature(reference_high)}°"
     )
 
-    effects_pdf = effects.to_pandas()
+    # -------------------------------------------------------------------
+    # 1. Global model and plot
+    # -------------------------------------------------------------------
+
+    print(f"Fitting global model on {data.height:,} observations...", flush=True)
+
+    global_model, global_effects = fit_temperature_model(
+        data,
+        reference_bin_id=reference_bin_id,
+        bin_width=BIN_WIDTH,
+        bin_origin=BIN_ORIGIN,
+    )
+
+    global_model.summary()
+
+    global_pdf = global_effects.to_pandas()
 
     fig, ax = plt.subplots(figsize=(9, 5))
 
     ax.errorbar(
-        effects_pdf["BIN_MIDPOINT"],
-        effects_pdf["ESTIMATE"],
+        global_pdf["BIN_MIDPOINT"],
+        global_pdf["ESTIMATE"],
         yerr=[
-            effects_pdf["ESTIMATE"] - effects_pdf["CI_LOW"],
-            effects_pdf["CI_HIGH"] - effects_pdf["ESTIMATE"],
+            global_pdf["ESTIMATE"] - global_pdf["CI_LOW"],
+            global_pdf["CI_HIGH"] - global_pdf["ESTIMATE"],
         ],
         fmt="o-",
         color="#0072B2",
@@ -968,202 +1097,119 @@ if __name__ == "__main__":
         label="Estimate and 95% CI",
     )
 
-    ax.axhline(
-        0,
-        color="black",
-        linewidth=0.8,
-        linestyle="--",
+    add_reference_region(
+        ax,
+        reference_bin_id=reference_bin_id,
+        bin_width=BIN_WIDTH,
+        bin_origin=BIN_ORIGIN,
     )
 
-    ax.axvspan(
-        reference_bin,
-        reference_bin + 2,
-        color="0.85",
-        alpha=0.7,
-        label=f"Reference: {reference_bin}–{reference_bin + 2}°",
+    finish_axis(
+        ax,
+        title="Temperature and segregation",
+        bin_width=BIN_WIDTH,
     )
 
-    ax.set(
-        xlabel="Average maximum temperature, 2° bin midpoint",
-        ylabel="Difference in average travel distance (m)",
-        title="Temperature and average visitor travel distance",
-    )
-
-    ax.set_xticks(effects_pdf["BIN_MIDPOINT"])
-    ax.tick_params(axis="x", rotation=45)
-    ax.grid(axis="y", alpha=0.15)
-
-    ax.legend(
-        frameon=False,
-        loc="best",
-    )
-
-    sns.despine(ax=ax)
     fig.tight_layout()
-
-    figure_path = ROOT / "figures" / "temperature_distance_binned.png"
-    figure_path.parent.mkdir(parents=True, exist_ok=True)
-
     fig.savefig(
-        figure_path,
+        FIGURE_PATH / "temperature_segregation_global.png",
         dpi=300,
         bbox_inches="tight",
     )
-
     plt.close(fig)
 
-    for cat in categories["CATEGORY"].unique():
-        pdf = (
-            pois_weekly.select(
-                "ID_STORE",
-                "CATEGORY",
-                "SEGREGATION",
-                "AVG_DIST",
-                "AVG_TMAX",
-                "DATE_RANGE_START",
-                "CELL_ID",
-            )
-            .filter(pl.col("CATEGORY") == cat)
-            .filter(
-                pl.col("ID_STORE").is_not_null(),
-                pl.col("SEGREGATION").is_not_null(),
-                pl.col("DATE_RANGE_START").is_not_null(),
-                pl.col("AVG_DIST").is_finite(),
-                pl.col("AVG_TMAX").is_finite(),
-            )
-            .with_columns(
-                (pl.col("AVG_TMAX") / 2).floor().mul(2).cast(pl.Int32).alias("TMAX_BIN")
-            )
+    # -------------------------------------------------------------------
+    # 2. All category models in one plot
+    # -------------------------------------------------------------------
+
+    category_effects = []
+
+    for category in PALETTE:
+        category_data = data.filter(pl.col("CATEGORY") == category)
+
+        if category_data.height < MIN_OBSERVATIONS:
+            print(f"Skipping {category}: only {category_data.height:,} observations.")
+            continue
+
+        available_bins = category_data["TMAX_BIN_ID"].unique().to_list()
+
+        if reference_bin_id not in available_bins:
+            print(f"Skipping {category}: shared reference bin is absent.")
+            continue
+
+        print(
+            f"Fitting {category} on {category_data.height:,} observations...",
+            flush=True,
+        )
+
+        model, effects = fit_temperature_model(
+            category_data,
+            reference_bin_id=reference_bin_id,
+            bin_width=BIN_WIDTH,
+            bin_origin=BIN_ORIGIN,
+        )
+
+        effects = effects.with_columns(pl.lit(category).alias("CATEGORY"))
+        category_effects.append(effects)
+
+    category_effects = pl.concat(category_effects, how="vertical")
+
+    fig, ax = plt.subplots(figsize=(11, 7))
+
+    for category in PALETTE:
+        effects = (
+            category_effects.filter(pl.col("CATEGORY") == category)
+            .sort("TMAX_BIN_ID")
             .to_pandas()
         )
-        reference_bin = int(pdf["TMAX_BIN"].value_counts().idxmax())
-        print(f"Reference: {reference_bin} to {reference_bin + 2} degrees")
 
-        print(f"Fitting model on {len(pdf):,} observations...", flush=True)
+        if effects.empty:
+            continue
 
-        model = pf.feols(
-            f"SEGREGATION ~ i(TMAX_BIN, ref={reference_bin}) | ID_STORE + DATE_RANGE_START",
-            data=pdf,
-            vcov={"CRV1": "ID_STORE + CELL_ID"},
-        )
-
-        print(cat)
-        model.summary()
-
-        coef = model.coef()
-        se = model.se()
-
-        effects = (
-            pl.DataFrame(
-                {
-                    "TERM": coef.index.tolist(),
-                    "ESTIMATE": coef.to_numpy(),
-                    "SE": se.to_numpy(),
-                }
-            )
-            .with_columns(
-                pl.col("TERM")
-                .str.extract(r"TMAX_BIN::(-?\d+)", 1)
-                .cast(pl.Int32)
-                .alias("TMAX_BIN")
-            )
-            .drop_nulls("TMAX_BIN")
-            .with_columns(
-                (pl.col("ESTIMATE") - 1.96 * pl.col("SE")).alias("CI_LOW"),
-                (pl.col("ESTIMATE") + 1.96 * pl.col("SE")).alias("CI_HIGH"),
-            )
-        )
-
-        reference_effect = pl.DataFrame(
-            {
-                "TERM": [f"TMAX_BIN::{reference_bin}"],
-                "ESTIMATE": [0.0],
-                "SE": [0.0],
-                "TMAX_BIN": [reference_bin],
-                "CI_LOW": [0.0],
-                "CI_HIGH": [0.0],
-            },
-            schema={
-                "TERM": pl.String,
-                "ESTIMATE": pl.Float64,
-                "SE": pl.Float64,
-                "TMAX_BIN": pl.Int32,
-                "CI_LOW": pl.Float64,
-                "CI_HIGH": pl.Float64,
-            },
-        )
-
-        effects = (
-            pl.concat(
-                [effects, reference_effect],
-                how="vertical",
-            )
-            .sort("TMAX_BIN")
-            .with_columns((pl.col("TMAX_BIN") + 1).alias("BIN_MIDPOINT"))
-        )
-
-        effects_pdf = effects.to_pandas()
-
-        fig, ax = plt.subplots(figsize=(9, 5))
+        color = PALETTE[category]
 
         ax.errorbar(
-            effects_pdf["BIN_MIDPOINT"],
-            effects_pdf["ESTIMATE"],
+            effects["BIN_MIDPOINT"],
+            effects["ESTIMATE"],
             yerr=[
-                effects_pdf["ESTIMATE"] - effects_pdf["CI_LOW"],
-                effects_pdf["CI_HIGH"] - effects_pdf["ESTIMATE"],
+                effects["ESTIMATE"] - effects["CI_LOW"],
+                effects["CI_HIGH"] - effects["ESTIMATE"],
             ],
             fmt="o-",
-            color="#0072B2",
+            color=color,
             markerfacecolor="white",
-            markeredgecolor="#0072B2",
-            markersize=5,
-            linewidth=1.25,
-            elinewidth=0.8,
-            capsize=3,
-            label="Estimate and 95% CI",
+            markeredgecolor=color,
+            markersize=3.5,
+            linewidth=1.1,
+            elinewidth=0.6,
+            capsize=2,
+            alpha=0.9,
+            label=category.replace("_", " "),
         )
 
-        ax.axhline(
-            0,
-            color="black",
-            linewidth=0.8,
-            linestyle="--",
-        )
+    add_reference_region(
+        ax,
+        reference_bin_id=reference_bin_id,
+        bin_width=BIN_WIDTH,
+        bin_origin=BIN_ORIGIN,
+    )
 
-        ax.axvspan(
-            reference_bin,
-            reference_bin + 2,
-            color="0.85",
-            alpha=0.7,
-            label=f"Reference: {reference_bin}–{reference_bin + 2}°",
-        )
+    finish_axis(
+        ax,
+        title="Temperature and segregation by POI category",
+        bin_width=BIN_WIDTH,
+    )
 
-        ax.set(
-            xlabel="Average maximum temperature, 2° bin midpoint",
-            ylabel="Difference in average travel distance (m)",
-            title="Temperature and average visitor travel distance",
-        )
+    ax.legend(
+        frameon=False,
+        loc="upper left",
+        bbox_to_anchor=(1.02, 1),
+    )
 
-        ax.set_xticks(effects_pdf["BIN_MIDPOINT"])
-        ax.tick_params(axis="x", rotation=45)
-        ax.grid(axis="y", alpha=0.15)
-
-        ax.legend(
-            frameon=False,
-            loc="best",
-        )
-
-        sns.despine(ax=ax)
-        fig.tight_layout()
-
-        figure_path = ROOT / "figures" / f"temperature_distance_binned_{cat}.png"
-        figure_path.parent.mkdir(parents=True, exist_ok=True)
-
-        fig.savefig(
-            figure_path,
-            dpi=300,
-            bbox_inches="tight",
-        )
-
-        plt.close(fig)
+    fig.tight_layout()
+    fig.savefig(
+        FIGURE_PATH / "temperature_segregation_categories.png",
+        dpi=300,
+        bbox_inches="tight",
+    )
+    plt.close(fig)
