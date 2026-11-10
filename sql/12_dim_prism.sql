@@ -1,11 +1,11 @@
 CREATE OR REPLACE TABLE prism_cells AS
 SELECT
-    CELL_ID,
-    ROW,
-    COL,
-    GEOMETRY AS GEOM
+    (row_number() OVER (ORDER BY "row", "col") - 1)::INTEGER AS CELL_ID,
+    "row" AS ROW,
+    "col" AS COL,
+    geometry AS GEOM
 FROM read_parquet('data/prism/prism_cells.parquet');
- 
+
 CREATE INDEX prism_cells_geom_idx
 ON prism_cells
 USING RTREE (GEOM);
