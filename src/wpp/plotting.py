@@ -254,6 +254,25 @@ def plot_categories_weekly_scatter(categories_weekly: pl.DataFrame) -> Figure:
     return fig
 
 
+def plot_pois_weekly(pois_weekly: pl.DataFrame) -> Figure:
+    agg = (
+        pois_weekly.group_by("DATE_RANGE_START")
+        .agg(
+            pl.len().alias("NUM_POIS"),
+            pl.col("TOTAL_VISITORS").sum(),
+            pl.col("TOTAL_VISITORS").mean().alias("AVG_VISITORS"),
+        )
+        .sort("DATE_RANGE_START")
+    )
+    fig, axes = plt.subplots(1, 2)
+    x = agg["DATE_RANGE_START"]
+    y1 = agg["NUM_POIS"]
+    y2 = agg["AVG_VISITORS"]
+    axes[0].plot(x, y1)
+    axes[1].plot(x, y2)
+    return fig
+
+
 def plot_poi_map(pois: pl.DataFrame) -> Figure:
     from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 
@@ -661,3 +680,7 @@ def plot_all(
         fig = plot_weekly_msa_segregation(pois_weekly)
         figure_path = base_path / "msa_weekly_segregation.pdf"
         fig.savefig(figure_path, dpi=200, bbox_inches="tight")
+
+        fig = plot_pois_weekly(pois_weekly)
+        figure_path = base_path / "pois_weekly_stats.pdf"
+        fig.savefig(figure_path, bbox_inches="tight")
