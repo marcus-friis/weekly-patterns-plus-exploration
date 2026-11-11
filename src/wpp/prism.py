@@ -23,7 +23,7 @@ def read_raster(zip_path: Path) -> np.ndarray:
             return src.read(1, masked=True)
 
 
-def build_mesh() -> pl.DataFrame:
+def build_mesh() -> gpd.GeoDataFrame:
     mesh = gpd.read_file(PRISM_DIR / "prism_4km_mesh" / "prism_4km_mesh.shp")
     mesh.to_parquet(PRISM_DIR / "prism_cells.parquet")
     return mesh
