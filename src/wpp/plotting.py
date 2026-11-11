@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import contextily as cx
 import matplotlib.pyplot as plt
 import numpy as np
@@ -8,27 +10,8 @@ from matplotlib.figure import Figure
 from matplotlib.lines import Line2D
 from pyproj import Transformer
 
-LABEL_CATEGORIES = {
-    "Restaurants",
-    "Grocery_Stores",
-    "Public_Transportation",
-    "Museums_Historical",
-}
-
-PALETTE = {
-    "Other": "#D9D9D9",
-    "Restaurants": "#D55E00",
-    "Cafes_Coffee": "#E69F00",
-    "Bars": "#8C2D62",
-    "Grocery_Stores": "#009E73",
-    "Specialty_Food": "#66C2A5",
-    "Libraries": "#0072B2",
-    "Museums_Historical": "#56B4E9",
-    "Parks_Forests": "#228833",
-    "Schools": "#AA4499",
-    "Public_Transportation": "#C99400",
-    "Retail": "#5F5F5F",
-}
+from wpp.config import LABEL_CATEGORIES, PALETTE
+from wpp.utils import project_root
 
 
 def plot_categories(categories: pl.DataFrame) -> Figure:
@@ -46,7 +29,7 @@ def plot_categories(categories: pl.DataFrame) -> Figure:
         main.select("CATEGORY", "CATEGORY_LABEL", "COLOR").unique().sort("CATEGORY")
     )
 
-    # Convert only at the plotting boundary.
+    # Convert only at the  boundary.
     other_pdf = other.to_pandas()
     main_pdf = main.to_pandas()
 
@@ -606,3 +589,62 @@ def plot_tmax_seg_scatter(pois_weekly: pl.DataFrame) -> Figure:
     sns.histplot(pois_weekly.to_pandas(), x="AVG_TMAX", y="SEGREGATION", ax=ax)
     sns.despine()
     return fig
+
+
+def plot_all(
+    pois: pl.DataFrame | None = None,
+    categories: pl.DataFrame | None = None,
+    poi_correlations: pl.DataFrame | None = None,
+    pois_weekly: pl.DataFrame | None = None,
+    categories_weekly: pl.DataFrame | None = None,
+    *,
+    base_path: Path | None = None,
+):
+    if base_path == None:
+        base_path = project_root() / "figures"
+    base_path.mkdir(parents=True, exist_ok=True)
+
+    if categories is not None:
+        fig = plot_categories(categories)
+        figure_path = base_path / "category_segregation.png"
+        fig.savefig(figure_path, dpi=400, bbox_inches="tight")
+
+        fig = plot_category_counts(categories)
+        figure_path = base_path / "category_counts.png"
+        fig.savefig(figure_path, dpi=200, bbox_inches="tight")
+
+    if pois is not None:
+        fig = plot_poi_map(pois)
+        figure_path = base_path / "poi_map.png"
+        fig.savefig(figure_path, dpi=400, bbox_inches="tight")
+
+        fig = plot_relationships(pois)
+        figure_path = base_path / "poi_relationships.png"
+        fig.savefig(figure_path, dpi=200, bbox_inches="tight")
+
+        fig = plot_poi_metrics_ccdf(pois)
+        figure_path = base_path / "poi_metrics_ccdf.png"
+        fig.savefig(figure_path, dpi=200, bbox_inches="tight")
+
+    if poi_correlations is not None:
+        fig = plot_poi_temperature_correlations(poi_correlations)
+        figure_path = base_path / "poi_temperature_correlations.png"
+        fig.savefig(
+            figure_path,
+            dpi=300,
+            bbox_inches="tight",
+        )
+
+    if categories_weekly is not None:
+        fig = plot_categories_weekly_linechart(categories_weekly)
+        figure_path = base_path / "categories_weekly.png"
+        fig.savefig(figure_path, dpi=200, bbox_inches="tight")
+
+        fig = plot_categories_weekly_scatter(categories_weekly)
+        figure_path = base_path / "categories_weekly_scatter.png"
+        fig.savefig(figure_path, dpi=200, bbox_inches="tight")
+
+    if pois_weekly is not None:
+        fig = plot_tmax_seg_scatter(pois_weekly)
+        figure_path = base_path / "tmax_seg_scatter.png"
+        fig.savefig(figure_path, dpi=200, bbox_inches="tight")
