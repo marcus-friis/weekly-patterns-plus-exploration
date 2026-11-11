@@ -57,13 +57,21 @@ def load_pois(con: DuckDBPyConnection) -> pl.DataFrame:
             GROUP BY ID_STORE
         )
         SELECT
-            p.*, v.TOTAL_VISITORS AS VISITORS, MEDIAN_DWELL,
+            CBSA_NAME, p.*, v.TOTAL_VISITORS AS VISITORS, MEDIAN_DWELL,
             COALESCE(CATEGORY, 'Other') AS CATEGORY, SUB_CATEGORY AS NAICS_TITLE
         FROM pois p
         JOIN v ON p.ID_STORE = v.ID_STORE
+        JOIN cbsa c ON p.CBSAFP = c.CBSAFP
         LEFT JOIN NAICS_CATEGORIES nc ON p.NAICS_CODE = nc.NAICS_CODE
     """
-    pois_dim = con.sql(query).pl()
+    pois_dim = (
+        con.sql(query)
+        .pl()
+        .with_columns(
+            pl.col("CBSA_NAME").alias("CBSA_NAME_FULL"),
+            pl.col("CBSA_NAME").str.extract(r"^([^-]*)", 1).alias("CBSA_NAME"),
+        )
+    )
     return pois_dim
 
 
@@ -83,7 +91,7 @@ def load_static_poi_segregation(con: DuckDBPyConnection) -> pl.DataFrame:
                     COUNT(*) AS NUM_WEEKS
                 from block_group_visits v
                 join pois p on v.ID_STORE = p.ID_STORE
-                where VISITOR_COUNTS >= 10
+                where VISITOR_COUNTS >= 100
                 group by v.ID_STORE, HOME_GEOID
             )
             select

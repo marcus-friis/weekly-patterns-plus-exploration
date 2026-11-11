@@ -591,10 +591,28 @@ def plot_tmax_seg_scatter(pois_weekly: pl.DataFrame) -> Figure:
     return fig
 
 
+def plot_weekly_msa_segregation(pois_weekly: pl.DataFrame) -> Figure:
+    fig, ax = plt.subplots()
+    msas = pois_weekly.group_by("DATE_RANGE_START", "CBSA_NAME").agg(
+        pl.col("SEGREGATION").mean().alias("AVG_SEGREGATION"),
+        (
+            (pl.col("SEGREGATION") * pl.col("TOTAL_VISITORS")).sum()
+            / pl.col("TOTAL_VISITORS").sum()
+        ).alias("W_AVG_SEGREGATION"),
+    )
+    sns.lineplot(
+        msas.to_pandas(),
+        x="DATE_RANGE_START",
+        y="W_AVG_SEGREGATION",
+        hue="CBSA_NAME",
+        ax=ax,
+    )
+    return fig
+
+
 def plot_all(
     pois: pl.DataFrame | None = None,
     categories: pl.DataFrame | None = None,
-    poi_correlations: pl.DataFrame | None = None,
     pois_weekly: pl.DataFrame | None = None,
     categories_weekly: pl.DataFrame | None = None,
     *,
@@ -626,15 +644,6 @@ def plot_all(
         figure_path = base_path / "poi_metrics_ccdf.png"
         fig.savefig(figure_path, dpi=200, bbox_inches="tight")
 
-    if poi_correlations is not None:
-        fig = plot_poi_temperature_correlations(poi_correlations)
-        figure_path = base_path / "poi_temperature_correlations.png"
-        fig.savefig(
-            figure_path,
-            dpi=300,
-            bbox_inches="tight",
-        )
-
     if categories_weekly is not None:
         fig = plot_categories_weekly_linechart(categories_weekly)
         figure_path = base_path / "categories_weekly.png"
@@ -647,4 +656,8 @@ def plot_all(
     if pois_weekly is not None:
         fig = plot_tmax_seg_scatter(pois_weekly)
         figure_path = base_path / "tmax_seg_scatter.png"
+        fig.savefig(figure_path, dpi=200, bbox_inches="tight")
+
+        fig = plot_weekly_msa_segregation(pois_weekly)
+        figure_path = base_path / "msa_weekly_segregation.pdf"
         fig.savefig(figure_path, dpi=200, bbox_inches="tight")
