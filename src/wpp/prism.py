@@ -29,7 +29,7 @@ def build_mesh() -> gpd.GeoDataFrame:
     return mesh
 
 
-def build(kind: str, mesh: pl.DataFrame) -> None:
+def build(kind: str, mesh: gpd.GeoDataFrame) -> None:
     rows, cols = mesh["row"].to_numpy(), mesh["col"].to_numpy()
     base = PRISM_DIR / kind
     out_dir = PRISM_DIR / f"prism_{kind}"
