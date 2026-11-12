@@ -15,6 +15,8 @@ if __name__ == "__main__":
         "LOCATION_NAME",
         "BRAND",
         "NAICS_CODE",
+        "TOP_CATEGORY",
+        "SUB_CATEGORY",
         "MSA_CODE",
         "POI_CBG",
         "LONGITUDE",
