@@ -52,12 +52,12 @@ def load_weekly_patterns_plus_parquet(dir_path: Path | str) -> pl.LazyFrame:
 def load_pois(con: DuckDBPyConnection) -> pl.DataFrame:
     query = """
         WITH v AS (
-            SELECT ID_STORE, SUM(VISITOR_COUNTS) AS TOTAL_VISITORS, AVG(MEDIAN_DWELL) AS MEDIAN_DWELL
+            SELECT ID_STORE, SUM(VISITOR_COUNTS) AS TOTAL_VISITORS
             FROM visits
             GROUP BY ID_STORE
         )
         SELECT
-            CBSA_NAME, p.*, v.TOTAL_VISITORS AS VISITORS, MEDIAN_DWELL,
+            CBSA_NAME, p.*, v.TOTAL_VISITORS AS VISITORS,
             COALESCE(CATEGORY, 'Other') AS CATEGORY, SUB_CATEGORY AS NAICS_TITLE
         FROM pois p
         JOIN v ON p.ID_STORE = v.ID_STORE
