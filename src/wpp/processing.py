@@ -12,12 +12,19 @@ if __name__ == "__main__":
 
     poi_cols = [
         "ID_STORE",
+        "LOCATION_NAME",
         "BRAND",
         "NAICS_CODE",
         "MSA_CODE",
         "POI_CBG",
         "LONGITUDE",
         "LATITUDE",
+        "STREET_ADDRESS",
+        "CITY",
+        "REGION",
+        "ISO_COUNTRY_CODE",
+        "OPEN_DATE",
+        "CLOSE_DATE",
     ]
     fct_cols = [
         "ID_STORE",
@@ -58,7 +65,7 @@ if __name__ == "__main__":
             .alias("VISITOR_HOME_CBGS")
         )
     )
-    print(filtered.head().collect())
+    # print(filtered.head().collect())
 
     output_path = DATA_DIR / "filtered-wpp"
     pois_path = output_path / "pois"
