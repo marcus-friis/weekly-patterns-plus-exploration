@@ -1,4 +1,4 @@
-CREATE TABLE naics AS
+CREATE OR REPLACE TABLE naics AS
 SELECT
     "Seq. No." AS seq_num,
     "2022 NAICS US   Code" AS NAICS_CODE,
