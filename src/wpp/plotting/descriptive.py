@@ -113,7 +113,6 @@ def plot_pois_weekly(pois_weekly: pl.DataFrame) -> Figure:
 
     axes[2, 0].set_ylabel("Distance")
     axes[2, 1].set_ylabel("Segregation")
-    axes[2, 1].set_ylim(0, 1)
 
     sns.despine(fig=fig)
     return fig
@@ -221,14 +220,11 @@ def plot_weekly_distribution(
 
 def plot_week_of_month_distributions(
     pois_weekly: pl.DataFrame,
-    *,
-    distance_column: str = "AVG_DIST",
-    home_groups_column: str = "NUM_HOME_GROUPS",
 ) -> Figure:
     """Compare POI-level distance and home-group distributions by week of month."""
     _require_columns(
         pois_weekly,
-        ["DATE_RANGE_START", distance_column, home_groups_column],
+        ["DATE_RANGE_START", "AVG_DIST", "NUM_HOME_GROUPS"],
     )
     data = pois_weekly.with_columns(
         (((pl.col("DATE_RANGE_START").dt.day() - 1) // 7) + 1)
@@ -240,7 +236,7 @@ def plot_week_of_month_distributions(
     sns.boxplot(
         data=data,
         x="WEEK_OF_MONTH",
-        y=distance_column,
+        y="AVG_DIST",
         showfliers=False,
         color="#4C78A8",
         ax=axes[0],
@@ -248,7 +244,7 @@ def plot_week_of_month_distributions(
     sns.boxplot(
         data=data,
         x="WEEK_OF_MONTH",
-        y=home_groups_column,
+        y="NUM_HOME_GROUPS",
         showfliers=False,
         color="#F58518",
         ax=axes[1],
@@ -421,13 +417,112 @@ def plot_poi_metrics_ccdf(pois: pl.DataFrame) -> Figure:
     return fig
 
 
+def plot_week_of_month_distance_home_groups(
+    pois_weekly: pl.DataFrame,
+    *,
+    home_groups_column: str = "NUM_HOME_GROUPS",
+) -> Figure:
+    """
+    Plot POI-week distributions of AVG_DIST and home block-group counts
+    by the ordinal weekly observation within each calendar month.
+    """
+
+    _require_columns(
+        pois_weekly,
+        [
+            "DATE_RANGE_START",
+            "AVG_DIST",
+            home_groups_column,
+        ],
+    )
+
+    # Assign each unique weekly date its ordinal position within its month.
+    week_lookup = (
+        pois_weekly.select("DATE_RANGE_START")
+        .unique()
+        .with_columns(pl.col("DATE_RANGE_START").dt.truncate("1mo").alias("MONTH"))
+        .sort(["MONTH", "DATE_RANGE_START"])
+        .with_columns(
+            pl.col("DATE_RANGE_START")
+            .rank(method="ordinal")
+            .over("MONTH")
+            .cast(pl.Int8)
+            .alias("WEEK_OF_MONTH")
+        )
+        .select(
+            "DATE_RANGE_START",
+            "WEEK_OF_MONTH",
+        )
+    )
+
+    plot_data = (
+        pois_weekly.join(
+            week_lookup,
+            on="DATE_RANGE_START",
+            how="left",
+            validate="m:1",
+        )
+        .select(
+            "WEEK_OF_MONTH",
+            "AVG_DIST",
+            home_groups_column,
+        )
+        .drop_nulls()
+        .to_pandas()
+    )
+
+    fig, axes = plt.subplots(
+        2,
+        1,
+        figsize=(10, 8),
+        sharex=True,
+        constrained_layout=True,
+    )
+
+    sns.boxplot(
+        data=plot_data,
+        x="WEEK_OF_MONTH",
+        y="AVG_DIST",
+        showfliers=False,
+        color="#4C78A8",
+        ax=axes[0],
+    )
+
+    sns.boxplot(
+        data=plot_data,
+        x="WEEK_OF_MONTH",
+        y=home_groups_column,
+        showfliers=False,
+        color="#F58518",
+        ax=axes[1],
+    )
+
+    axes[0].set(
+        title="Travel-distance distribution by week of month",
+        xlabel="",
+        ylabel="AVG_DIST",
+    )
+
+    axes[1].set(
+        title="Home block-group distribution by week of month",
+        xlabel="Ordinal week within month",
+        ylabel="Home block groups per POI",
+    )
+
+    for ax in axes:
+        ax.grid(axis="y", alpha=0.15)
+
+    sns.despine(fig=fig)
+
+    return fig
+
+
 def plot_all(
     *,
     pois: pl.DataFrame | None = None,
     categories: pl.DataFrame | None = None,
     pois_weekly: pl.DataFrame | None = None,
     base_path: Path | None = None,
-    home_groups_column: str = "NUM_HOME_GROUPS",
 ) -> None:
     base_path = base_path or project_root() / "figures" / "descriptive"
     base_path.mkdir(parents=True, exist_ok=True)
@@ -453,22 +548,23 @@ def plot_all(
             ),
             base_path / "weekly_distance_distribution.pdf",
         )
-        if home_groups_column in pois_weekly.columns:
-            _save_figure(
-                plot_weekly_distribution(
-                    pois_weekly,
-                    home_groups_column,
-                    ylabel="Number of home groups",
-                    log_scale=True,
-                ),
-                base_path / "weekly_home_group_distribution.pdf",
-            )
-            _save_figure(
-                plot_week_of_month_distributions(
-                    pois_weekly, home_groups_column=home_groups_column
-                ),
-                base_path / "week_of_month_distributions.pdf",
-            )
+        _save_figure(
+            plot_week_of_month_distance_home_groups(pois_weekly),
+            base_path / "week_of_month_distance_home_groups.pdf",
+        )
+        _save_figure(
+            plot_weekly_distribution(
+                pois_weekly,
+                "NUM_HOME_GROUPS",
+                ylabel="Number of home groups",
+                log_scale=True,
+            ),
+            base_path / "weekly_home_group_distribution.pdf",
+        )
+        _save_figure(
+            plot_week_of_month_distributions(pois_weekly),
+            base_path / "week_of_month_distributions.pdf",
+        )
         _save_figure(
             plot_weekly_missingness(pois_weekly), base_path / "weekly_missingness.pdf"
         )
