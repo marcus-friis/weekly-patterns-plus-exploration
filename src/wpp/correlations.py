@@ -4,10 +4,10 @@ from scipy.stats import spearmanr
 from statsmodels.stats.multitest import multipletests
 
 from wpp import cache, data, db, plotting
+from wpp.config import DB_PATH
 from wpp.utils import project_root
 
 ROOT = project_root()
-DB_PATH = ROOT / "wpp.duckdb"
 
 
 def compute_poi_temperature_correlations(
@@ -202,7 +202,7 @@ if __name__ == "__main__":
         .sort("MEDIAN_RHO")
     )
 
-    fig = plotting.plot_poi_temperature_correlations(poi_correlations)
+    fig = plotting.analysis.plot_poi_temperature_correlations(poi_correlations)
     figure_path = "poi_temperature_correlations.png"
     fig.savefig(
         figure_path,

@@ -1,3 +1,8 @@
+from wpp.utils import project_root
+
+ROOT = project_root()
+DB_PATH = ROOT / "wpp.duckdb"
+
 LABEL_CATEGORIES = {
     "Restaurants",
     "Grocery_Stores",

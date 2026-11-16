@@ -1,19 +1,14 @@
-from collections import defaultdict
-from collections.abc import Iterable
-from datetime import datetime
-
 import matplotlib.pyplot as plt
 import polars as pl
 import seaborn as sns
-from matplotlib.lines import Line2D
 
 from wpp import db
+from wpp.config import DB_PATH
 from wpp.segregation import data
 from wpp.utils import project_root
 
 ROOT = project_root()
 DATA_PATH = ROOT / "data"
-DB_PATH = ROOT / "wpp.duckdb"
 N_INCOME_GROUPS = 4
 
 sns.set_theme(style="ticks")

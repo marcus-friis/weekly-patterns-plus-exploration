@@ -7,14 +7,11 @@ import pyfixest as pf
 import seaborn as sns
 
 from wpp import cache, correlations, data, db
-from wpp.config import PALETTE
+from wpp.config import DB_PATH, PALETTE, ROOT
 from wpp.plotting import analysis, descriptive
-from wpp.utils import project_root
 
-ROOT = project_root()
 FIGURE_PATH = ROOT / "roflfigures2"
 DESCRIPTIVE_PATH = FIGURE_PATH / "descriptive"
-DB_PATH = ROOT / "wpp.duckdb"
 
 sns.set_theme(style="ticks")
 pl.Config.set_engine_affinity("streaming")
@@ -63,6 +60,8 @@ if __name__ == "__main__":
     )
     pois_weekly = pois_dim.join(poi_visits_weekly, on="ID_STORE")
     categories_weekly = agg_categories(pois_weekly, ["CATEGORY", "DATE_RANGE_START"])
+
+    print(pois_weekly)
 
     # segregation
     msas = pois.group_by("CBSA_NAME").agg(

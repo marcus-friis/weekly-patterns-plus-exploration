@@ -3,18 +3,16 @@ from pathlib import Path
 
 import duckdb
 
-from wpp.utils import project_root
+from wpp.config import DB_PATH, ROOT
 
-ROOT = project_root()
 DATA_PATH = ROOT / "data"
-DUCK_PATH = ROOT / "wpp.duckdb"
 PARQUET_DIR_PATH = DATA_PATH / "2025-weekly-patterns-plus"
 DATA_GLOB = PARQUET_DIR_PATH / "*.parquet"
 SQL_DIR = ROOT / "sql"
 
 
 def _new_connection(
-    database: str | Path = DUCK_PATH, read_only: bool = False
+    database: str | Path = DB_PATH, read_only: bool = False
 ) -> duckdb.DuckDBPyConnection:
     con = duckdb.connect(database, read_only=read_only)
     con.install_extension("spatial")
@@ -24,14 +22,14 @@ def _new_connection(
 
 
 def connect(
-    database: str | Path = DUCK_PATH, read_only: bool = False
+    database: str | Path = DB_PATH, read_only: bool = False
 ) -> duckdb.DuckDBPyConnection:
     """Plain connection — caller is responsible for con.close()."""
     return _new_connection(database, read_only=read_only)
 
 
 @contextmanager
-def get_con(database: str | Path = DUCK_PATH, read_only: bool = False):
+def get_con(database: str | Path = DB_PATH, read_only: bool = False):
     con = _new_connection(database, read_only=read_only)
     con.execute("SET enable_progress_bar = true;")
     con.execute("SET enable_progress_bar_print = true;")
