@@ -25,6 +25,7 @@ FROM src
 JOIN pois p ON src.ID_STORE = p.ID_STORE
 JOIN block_groups bg ON src.v.cbg = bg.GEOID
 WHERE p.CBSAFP = bg.CBSAFP
+  AND v.visitors > 0
 ORDER BY DATE_RANGE_START, ID_STORE, HOME_GEOID;
 
 CREATE OR REPLACE TABLE poi_home_dist AS
