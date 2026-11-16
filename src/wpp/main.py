@@ -61,8 +61,6 @@ if __name__ == "__main__":
     pois_weekly = pois_dim.join(poi_visits_weekly, on="ID_STORE")
     categories_weekly = agg_categories(pois_weekly, ["CATEGORY", "DATE_RANGE_START"])
 
-    print(pois_weekly)
-
     # segregation
     msas = pois.group_by("CBSA_NAME").agg(
         pl.col("SEGREGATION").mean().alias("AVG_SEGREGATION"),
