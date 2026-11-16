@@ -7,9 +7,10 @@ from wpp.utils import project_root
 
 ROOT = project_root()
 DATA_PATH = ROOT / "data"
-DUCK_PATH = DATA_PATH / "db.duckdb"
+DUCK_PATH = ROOT / "wpp.duckdb"
 PARQUET_DIR_PATH = DATA_PATH / "2025-weekly-patterns-plus"
 DATA_GLOB = PARQUET_DIR_PATH / "*.parquet"
+SQL_DIR = ROOT / "sql"
 
 
 def _new_connection(
@@ -38,3 +39,17 @@ def get_con(database: str | Path = DUCK_PATH, read_only: bool = False):
         yield con
     finally:
         con.close()
+
+
+def run_sql_dir(
+    con: duckdb.DuckDBPyConnection,
+    sql_dir: Path = SQL_DIR,
+    only: list[str] | None = None,
+) -> None:
+    """Execute *.sql files in lexical order (00_, 10_, 20_, ...)."""
+    files = sorted(sql_dir.glob("*.sql"))
+    if only:
+        files = [f for f in files if any(f.name.startswith(p) for p in only)]
+    for f in files:
+        print(f"Running {f.name} ...")
+        con.execute(f.read_text())
