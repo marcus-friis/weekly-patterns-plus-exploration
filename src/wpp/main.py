@@ -2,19 +2,18 @@ from itertools import product
 from typing import Any
 
 import matplotlib.pyplot as plt
-import numpy as np
 import polars as pl
 import pyfixest as pf
 import seaborn as sns
-from scipy.stats import spearmanr
-from statsmodels.stats.multitest import multipletests
 
-from wpp import cache, correlations, data, db, plotting
+from wpp import cache, correlations, data, db
 from wpp.config import PALETTE
+from wpp.plotting import analysis, descriptive
 from wpp.utils import project_root
 
 ROOT = project_root()
-FIGURE_PATH = ROOT / "lolfigures2"
+FIGURE_PATH = ROOT / "roflfigures2"
+DESCRIPTIVE_PATH = FIGURE_PATH / "descriptive"
 DB_PATH = ROOT / "wpp.duckdb"
 
 sns.set_theme(style="ticks")
@@ -79,12 +78,18 @@ if __name__ == "__main__":
     correlations.print_segregation_summary(pois, categories, categories_weekly)
 
     # plots
-    plotting.plot_all(
-        pois,
-        categories,
-        pois_weekly,
-        categories_weekly,
+    analysis.plot_all(
+        pois=pois,
+        categories=categories,
+        pois_weekly=pois_weekly,
+        categories_weekly=categories_weekly,
         base_path=FIGURE_PATH,
+    )
+    descriptive.plot_all(
+        pois=pois,
+        categories=categories,
+        pois_weekly=pois_weekly,
+        base_path=DESCRIPTIVE_PATH,
     )
 
     # modeling
@@ -116,12 +121,13 @@ if __name__ == "__main__":
 
     bins = [-float("inf"), 0, 5, 10, 15, 20, 25, 30, 35, float("inf")]
     labels = ["<0", "0-5", "5-10", "10-15", "15-20", "20-25", "25-30", "30-35", "35+"]
+    base_bin = "20-25"
 
     pois_weekly = pois_weekly.with_columns(
         pl.col("AVG_TMAX").bin_intervals(bins[1:-1], labels=labels).alias("TMAX_BIN")
     )
     model_bins = pf.feols(
-        f"{OUTCOME} ~ C(TMAX_BIN, contr.treatment(base='15-20')) | ID_STORE + DATE_RANGE_START",
+        f"{OUTCOME} ~ C(TMAX_BIN, contr.treatment(base='{base_bin}')) | ID_STORE + DATE_RANGE_START",
         data=pois_weekly.select(
             "ID_STORE", "DATE_RANGE_START", "SEGREGATION", "TMAX_BIN", "CELL_ID"
         ),
@@ -146,7 +152,7 @@ if __name__ == "__main__":
             continue
 
         model_p = pf.feols(
-            f"{OUTCOME} ~ C(TMAX_BIN, contr.treatment(base='15-20')) | ID_STORE + DATE_RANGE_START",
+            f"{OUTCOME} ~ C(TMAX_BIN, contr.treatment(base='{base_bin}')) | ID_STORE + DATE_RANGE_START",
             data=df,
             vcov={"CRV1": "ID_STORE + CELL_ID"},
         )
@@ -155,7 +161,7 @@ if __name__ == "__main__":
     def plot_model(m, ax, cat, title=None):
         t = m.tidy()
         t.index = t.index.str.extract(r"\[T\.(.+)\]", expand=False)
-        t.loc["15-20"] = 0  # reference bin
+        t.loc[base_bin] = 0  # reference bin
         t = t.reindex(labels)  # correct order, gaps if bin is empty
         color = PALETTE.get(cat, "#4C78A8")
         ax.axhline(0, color="grey", ls="--", lw=0.8)
