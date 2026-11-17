@@ -270,3 +270,159 @@ def load_weekly_poi_segregation(con: DuckDBPyConnection) -> pl.DataFrame:
     )
 
     return poi_visits_weekly
+
+
+def load_static_cbg_segregation(con: DuckDBPyConnection) -> pl.DataFrame:
+    query = """
+        WITH bg AS (
+            SELECT
+                GEOID, CBSAFP, MEDIAN_HH_INCOME,
+                NTILE(4) OVER (PARTITION BY CBSAFP ORDER BY MEDIAN_HH_INCOME ASC) AS INCOME_GROUP
+            FROM block_groups_cbsa
+            WHERE MEDIAN_HH_INCOME IS NOT NULL
+        )
+        SELECT
+            v.HOME_GEOID AS GEOID, INCOME_GROUP,
+            SUM(VISITOR_COUNTS) AS TOTAL_VISITORS,
+            SUM(DIST * VISITOR_COUNTS) / SUM(VISITOR_COUNTS) AS AVG_DIST
+        FROM block_group_visits_enhanced v
+        JOIN pois p ON v.ID_STORE = p.ID_STORE
+        JOIN bg ON p.POI_GEOID = bg.GEOID
+        GROUP BY 1, 2
+    """
+    cbg_group_visits = con.sql(query).pl()
+
+    cbg_summary = cbg_group_visits.group_by("GEOID").agg(
+        (
+            (pl.col("AVG_DIST") * pl.col("TOTAL_VISITORS")).sum()
+            / pl.col("TOTAL_VISITORS").sum()
+        ).alias("AVG_DIST"),
+    )
+    cbg_visits = (
+        cbg_group_visits.sort("INCOME_GROUP")
+        .pivot(
+            "INCOME_GROUP",
+            index="GEOID",
+            values=["TOTAL_VISITORS"],
+            column_naming="combine",
+        )
+        .fill_null(0)
+        .with_columns(
+            pl.sum_horizontal(pl.selectors.starts_with("TOTAL_VISITORS_")).alias(
+                "TOTAL_VISITORS"
+            )
+        )
+        .with_columns(
+            (
+                pl.selectors.starts_with("TOTAL_VISITORS_").cast(pl.Float64)
+                / pl.col("TOTAL_VISITORS").replace({0: None})
+            ).name.replace("TOTAL_VISITORS_", "TAU_")
+        )
+        .with_columns(
+            (
+                (2 / 3)
+                * pl.sum_horizontal((pl.selectors.starts_with("TAU_") - (1 / 4)).abs())
+            ).alias("SEGREGATION")
+        )
+        .filter(pl.col("TOTAL_VISITORS") > 0)
+        .join(cbg_summary, on="GEOID", how="left")
+    )
+    return cbg_visits
+
+
+def load_weekly_cbg_segregation(con: DuckDBPyConnection) -> pl.DataFrame:
+    query = """
+    WITH bg AS (
+        SELECT
+            GEOID,
+            CBSAFP,
+            MEDIAN_HH_INCOME,
+            NTILE(4) OVER (
+                PARTITION BY CBSAFP
+                ORDER BY MEDIAN_HH_INCOME
+            ) AS INCOME_GROUP
+        FROM block_groups_cbsa
+        WHERE MEDIAN_HH_INCOME IS NOT NULL
+    ),
+    cbg_group_visits_weekly AS (
+        SELECT
+            v.HOME_GEOID AS GEOID,
+            v.DATE_RANGE_START,
+            v.DATE_RANGE_END,
+            bg.INCOME_GROUP,
+            SUM(v.VISITOR_COUNTS) AS TOTAL_VISITORS,
+            SUM(v.DIST * v.VISITOR_COUNTS)
+                / SUM(v.VISITOR_COUNTS) AS AVG_DIST,
+            COUNT(*) AS NUM_POIS
+        FROM block_group_visits_enhanced v
+        JOIN pois p
+            ON v.ID_STORE = p.ID_STORE
+        JOIN bg
+            ON p.POI_GEOID = bg.GEOID
+        GROUP BY
+            v.HOME_GEOID,
+            v.DATE_RANGE_START,
+            v.DATE_RANGE_END,
+            bg.INCOME_GROUP
+    )
+    SELECT *
+    FROM cbg_group_visits_weekly
+    ORDER BY
+        GEOID,
+        DATE_RANGE_START,
+        INCOME_GROUP
+    """
+    cbg_group_visits_weekly = con.sql(query).pl()
+
+    cbg_summary_weekly = cbg_group_visits_weekly.group_by(
+        "GEOID",
+        "DATE_RANGE_START",
+    ).agg(
+        (
+            (pl.col("AVG_DIST") * pl.col("TOTAL_VISITORS")).sum()
+            / pl.col("TOTAL_VISITORS").sum()
+        ).alias("AVG_DIST"),
+        pl.col("NUM_POIS").sum().alias("NUM_POIS"),
+    )
+
+    cbg_visits_weekly = (
+        cbg_group_visits_weekly.sort("INCOME_GROUP")
+        .pivot(
+            "INCOME_GROUP",
+            index=[
+                "GEOID",
+                "DATE_RANGE_START",
+                "DATE_RANGE_END",
+            ],
+            column_naming="combine",
+        )
+        .fill_null(
+            0,
+            matches_supertype=False,
+        )
+        .with_columns(
+            pl.sum_horizontal(pl.selectors.starts_with("TOTAL_VISITORS_")).alias(
+                "TOTAL_VISITORS"
+            )
+        )
+        .with_columns(
+            (
+                pl.selectors.starts_with("TOTAL_VISITORS_").cast(pl.Float64)
+                / pl.col("TOTAL_VISITORS").replace(0, None)
+            ).name.replace("TOTAL_VISITORS_", "TAU_")
+        )
+        .with_columns(
+            (
+                (2 / 3)
+                * pl.sum_horizontal((pl.selectors.starts_with("TAU_") - 0.25).abs())
+            ).alias("SEGREGATION")
+        )
+        .filter(pl.col("TOTAL_VISITORS") > 0)
+        .join(
+            cbg_summary_weekly,
+            on=["GEOID", "DATE_RANGE_START"],
+            how="left",
+        )
+    )
+
+    return cbg_visits_weekly
