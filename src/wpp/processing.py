@@ -34,6 +34,7 @@ if __name__ == "__main__":
         "DATE_RANGE_END",
         "VISITOR_COUNTS",
         "VISITOR_HOME_CBGS",
+        "VISITOR_HOME_AGGREGATION",
     ]
     # msa_set = {35620, 33100, 40140}
     msa_set = {35620}
@@ -51,11 +52,7 @@ if __name__ == "__main__":
             .list.sum()
             .alias("VISITOR_HOME_CBGS_SUM"),
         )
-        # .filter(
-        #     pl.col("VISITOR_HOME_CBGS_SUM") >= 100, pl.col("VISITOR_NUM_HOMES") >= 10
-        # )
         .with_columns(pl.len().over("ID_STORE").alias("NUM_POI_WEEKS"))
-        # .filter(pl.col("NUM_POI_WEEKS") >= 52 / 2)
         .with_columns(
             pl.col("VISITOR_HOME_CBGS")
             .str.extract_all(pair_re)
@@ -65,10 +62,18 @@ if __name__ == "__main__":
                     visitors=pl.element().str.extract(r":\s*(-?\d+)").cast(pl.Int64),
                 )
             )
-            .alias("VISITOR_HOME_CBGS")
+            .alias("VISITOR_HOME_CBGS"),
+            pl.col("VISITOR_HOME_AGGREGATION")
+            .str.extract_all(pair_re)
+            .list.eval(
+                pl.struct(
+                    ct=pl.element().str.extract(r'"([^"]*)"'),
+                    visitors=pl.element().str.extract(r":\s*(-?\d+)").cast(pl.Int64),
+                )
+            )
+            .alias("VISITOR_HOME_AGGREGATION"),
         )
     )
-    # print(filtered.head().collect())
 
     output_path = DATA_DIR / "filtered-wpp"
     pois_path = output_path / "pois"
