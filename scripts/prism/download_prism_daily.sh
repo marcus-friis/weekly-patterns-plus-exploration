@@ -36,7 +36,7 @@ mirror \
   --verbose \
   --include-glob="*.zip" \
   "/time_series/us/an/cog/4km/${variable}/daily/${year}" \
-  "$OUT/$variable/$year"
+  "$OUT/$variable"
 EOF
   done
 done
