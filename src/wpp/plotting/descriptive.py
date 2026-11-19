@@ -1,12 +1,10 @@
 from pathlib import Path
 
-import contextily as cx
 import matplotlib.pyplot as plt
 import numpy as np
 import polars as pl
 import seaborn as sns
 from matplotlib.figure import Figure
-from pyproj import Transformer
 
 from wpp.config import PALETTE
 from wpp.utils import project_root
@@ -313,44 +311,6 @@ def plot_weekly_missingness(
     return fig
 
 
-def plot_poi_map(pois: pl.DataFrame) -> Figure:
-    from mpl_toolkits.axes_grid1.inset_locator import inset_axes
-
-    _require_columns(pois, ["LONGITUDE", "LATITUDE", "SEGREGATION"])
-    fig, axes = plt.subplots(1, 2, figsize=(12, 6), constrained_layout=True)
-    transformer = Transformer.from_crs("EPSG:4326", "EPSG:3857", always_xy=True)
-    x, y = transformer.transform(
-        pois["LONGITUDE"].to_numpy(), pois["LATITUDE"].to_numpy()
-    )
-
-    hb_density = axes[0].hexbin(x, y, gridsize=80, mincnt=5, bins="log", cmap="viridis")
-    axes[0].set_title(f"POI density (n={len(pois):,})")
-    cax = inset_axes(axes[0], width="40%", height="3%", loc="lower right", borderpad=1)
-    cbar = fig.colorbar(hb_density, cax=cax, orientation="horizontal")
-    cbar.set_label("Log POI count", fontsize=8)
-
-    hb_seg = axes[1].hexbin(
-        x,
-        y,
-        C=pois["SEGREGATION"].to_numpy(),
-        reduce_C_function=np.mean,
-        gridsize=80,
-        mincnt=5,
-        cmap="coolwarm",
-        vmin=0,
-        vmax=1,
-    )
-    axes[1].set_title("Mean segregation")
-    cax = inset_axes(axes[1], width="40%", height="3%", loc="lower right", borderpad=1)
-    cbar = fig.colorbar(hb_seg, cax=cax, orientation="horizontal")
-    cbar.set_label("Segregation", fontsize=8)
-
-    for ax in axes:
-        cx.add_basemap(ax)
-        ax.set_axis_off()
-    return fig
-
-
 def plot_poi_metrics_ccdf(pois: pl.DataFrame) -> Figure:
     _require_columns(pois, ["ID_STORE", "CATEGORY", "TOTAL_VISITORS", "AVG_DIST"])
     fig, axes = plt.subplots(2, 2, figsize=(12, 10), constrained_layout=True)
@@ -532,7 +492,6 @@ def plot_all(
             plot_category_counts(categories), base_path / "category_counts.pdf"
         )
     if pois is not None:
-        _save_figure(plot_poi_map(pois), base_path / "poi_map.pdf", dpi=400)
         _save_figure(plot_poi_metrics_ccdf(pois), base_path / "poi_metrics_ccdf.pdf")
     if pois_weekly is not None:
         _save_figure(plot_pois_weekly(pois_weekly), base_path / "pois_weekly_stats.pdf")
