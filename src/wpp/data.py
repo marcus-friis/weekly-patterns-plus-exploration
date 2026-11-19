@@ -163,6 +163,9 @@ def load_weekly_poi_segregation(con: DuckDBPyConnection) -> pl.DataFrame:
             AVG(t.TMEAN) AS AVG_TMEAN,
             AVG(t.TMIN) AS AVG_TMIN,
             AVG(t.TMAX) AS AVG_TMAX,
+            AVG(t.TMEAN_NORM) AS AVG_TMEAN_NORM,
+            AVG(t.TMIN_NORM) AS AVG_TMIN_NORM,
+            AVG(t.TMAX_NORM) AS AVG_TMAX_NORM,
             COUNT(t.DATE) AS NUM_TEMPERATURE_DAYS
         FROM poi_weeks pw
         JOIN pois p
