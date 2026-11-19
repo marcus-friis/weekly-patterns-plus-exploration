@@ -1,4 +1,5 @@
 import datetime as dt
+import shutil
 
 import polars as pl
 
@@ -83,6 +84,15 @@ if __name__ == "__main__":
     )
 
     output_path = DATA_DIR / "filtered-wpp"
+    backup_path = output_path.with_name(output_path.name + "_backup")
+
+    # If a previous output exists, move it to the backup location
+    if output_path.exists():
+        if backup_path.exists():
+            shutil.rmtree(backup_path)  # replace any older backup
+        shutil.move(str(output_path), str(backup_path))
+        print(f"Moved existing output to {backup_path}")
+
     pois_path = output_path / "pois"
     fct_path = output_path / "visits"
     pois_path.mkdir(parents=True, exist_ok=True)
