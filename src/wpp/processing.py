@@ -1,3 +1,5 @@
+import datetime as dt
+
 import polars as pl
 
 from wpp import data, db
@@ -7,7 +9,7 @@ ROOT = project_root()
 DATA_DIR = ROOT / "data"
 
 if __name__ == "__main__":
-    data_path = DATA_DIR / "2025-weekly-patterns-plus"
+    data_path = DATA_DIR / "ny-weekly-patterns-plus"
     lf = data.load_weekly_patterns_plus_parquet(data_path)
 
     poi_cols = [
@@ -41,6 +43,11 @@ if __name__ == "__main__":
     pair_re = r'"[^"]*"\s*:\s*-?\d+'
     filtered = (
         lf.filter(pl.col("MSA_CODE").is_in(msa_set))
+        .filter(
+            pl.col("DATE_RANGE_START").is_between(
+                dt.date(2017, 1, 1), dt.date(2019, 12, 31)
+            )
+        )
         .with_columns(
             pl.col("VISITOR_HOME_CBGS")
             .str.extract_all(r"\d+\":")
